@@ -3,7 +3,7 @@ import "./chart-dialog";
 import "./settings-dialog";
 import type { ChartSpec } from "./chart-dialog";
 import { compass, humidityRing, pressureDial, radiationSun, rainCylinder, tempGauge, uvPyramid } from "./gauges";
-import { addDays, ago, dayStart, dewPoint, feelsLike, fmt, minutesToTs, parseHistory, pressureTrend, uvLevel, valueAt, windCardinal } from "./logic";
+import { addDays, ago, dayStart, dewPoint, feelsLike, fmt, minutesToTs, parseHistory, pressureTrend, seaLevelPressure, uvLevel, valueAt, windCardinal } from "./logic";
 import { ENTITY_KEYS, defaultSettings } from "./types";
 import type { EntityKey, Hass, Series, Settings } from "./types";
 
@@ -94,7 +94,7 @@ export class WeatherHubcasaleCard extends LitElement {
   }
   private _merge(s: Partial<Settings>): Settings {
     const d = defaultSettings();
-    return { ...d, ...s, entities: { ...d.entities, ...(s.entities ?? {}) }, map: { ...d.map, ...(s.map ?? {}) }, forecast: { ...d.forecast, ...(s.forecast ?? {}) } };
+    return { ...d, ...s, entities: { ...d.entities, ...(s.entities ?? {}) }, map: { ...d.map, ...(s.map ?? {}) }, forecast: { ...d.forecast, ...(s.forecast ?? {}) }, pressure_altitude: typeof s.pressure_altitude === "number" ? s.pressure_altitude : 0 };
   }
   private async _subscribe() {
     try { this._unsub = await this._hass.connection?.subscribeEvents?.(() => void this._loadSettings(), SETTINGS_EVENT); } catch { /* facoltativo */ }
@@ -185,7 +185,12 @@ export class WeatherHubcasaleCard extends LitElement {
       case "precipitation": spec = { title: "Precipitazioni", dayStart: dayStartTs, yMin: 0, series: [
         { label: "Totale del giorno", color: "#3d8fd1", unit: u("rain_day", "mm"), data: this._series("rain_day"), style: "area" },
         { label: "Intensità", color: "#f0923c", unit: u("rain_rate", "mm/h"), data: this._series("rain_rate") }] }; break;
-      case "pressure": spec = { title: "Pressione", dayStart: dayStartTs, series: [{ label: "Pressione", color: "#b07cd8", unit: u("pressure", "hPa"), data: this._series("pressure") }] }; break;
+      case "pressure": {
+        const alt = this._settings.pressure_altitude;
+        const data = alt ? this._series("pressure").map((pt) => ({ ts: pt.ts, v: seaLevelPressure(pt.v, valueAt(this._history[this._ent.temperature], pt.ts), alt) })) : this._series("pressure");
+        spec = { title: alt ? "Pressione (livello del mare)" : "Pressione", dayStart: dayStartTs, series: [{ label: "Pressione", color: "#b07cd8", unit: u("pressure", "hPa"), data }] };
+        break;
+      }
       default: spec = { title: "Radiazione solare e UV", dayStart: dayStartTs, yMin: 0, series: [
         { label: "Radiazione", color: "#f0b43c", unit: u("radiation", "W/m²"), data: this._series("radiation"), style: "area" },
         { label: "Indice UV", color: "#b07cd8", unit: "", data: this._series("uv") }] };
@@ -279,10 +284,12 @@ export class WeatherHubcasaleCard extends LitElement {
       out.push(this._tile("Precipitazioni", rainCylinder(day), fmt(day ?? rate, 1), this._unit("rain_day", "mm"), html`${fmt(rate, 1)} ${this._rateUnit()}`, [{ kind: "precipitation", label: "Grafico precipitazioni" }]));
     }
     if (e.pressure) {
-      const p = this._val("pressure");
-      const prev = valueAt(this._history[e.pressure], this._ts() - 3 * HOUR);
+      const alt = this._settings.pressure_altitude;
+      const slm = (v: number | null, ts: number) => (v === null || !alt ? v : seaLevelPressure(v, e.temperature ? valueAt(this._history[e.temperature], ts) ?? t : t, alt));
+      const p = slm(this._val("pressure"), this._ts());
+      const prev = slm(valueAt(this._history[e.pressure], this._ts() - 3 * HOUR), this._ts() - 3 * HOUR);
       const tr = pressureTrend(p !== null && prev !== null ? p - prev : null);
-      out.push(this._tile("Pressione", pressureDial(p), fmt(p, 1), this._unit("pressure", "hPa"), tr === "up" ? "▲ In aumento" : tr === "down" ? "▼ In calo" : tr === "steady" ? "▬ Stabile" : "", [{ kind: "pressure", label: "Grafico pressione" }]));
+      out.push(this._tile("Pressione", pressureDial(p), fmt(p, 1), this._unit("pressure", "hPa"), (tr === "up" ? "▲ In aumento" : tr === "down" ? "▼ In calo" : tr === "steady" ? "▬ Stabile" : "") + (alt ? " · s.l.m." : ""), [{ kind: "pressure", label: "Grafico pressione" }]));
     }
     if (e.uv) {
       const uv = this._val("uv");

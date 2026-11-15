@@ -22,6 +22,7 @@ ENTITY_KEYS = (
 ENTITY_RE = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 ZOOM_MIN, ZOOM_MAX = 3, 12
 TITLE_MAX = 60
+ALTITUDE_MAX = 5000
 
 
 def default_settings() -> dict[str, Any]:
@@ -30,6 +31,7 @@ def default_settings() -> dict[str, Any]:
         "entities": {key: "" for key in ENTITY_KEYS},
         "map": {"enabled": True, "zoom": 7},
         "forecast": {"enabled": True},
+        "pressure_altitude": 0,
     }
 
 
@@ -57,4 +59,7 @@ def normalize(data: Any) -> dict[str, Any]:
     forecast = data.get("forecast")
     if isinstance(forecast, dict) and isinstance(forecast.get("enabled"), bool):
         result["forecast"]["enabled"] = forecast["enabled"]
+    altitude = data.get("pressure_altitude")
+    if isinstance(altitude, (int, float)) and not isinstance(altitude, bool):
+        result["pressure_altitude"] = max(0, min(ALTITUDE_MAX, int(altitude)))
     return result

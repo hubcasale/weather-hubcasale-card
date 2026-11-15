@@ -50,7 +50,7 @@ La mappa usa la [Weather Radar Card](https://github.com/Makin-Things/weather-rad
 | Vento, raffica | km/h (anche m/s, mph, kn: la percepita li converte) |
 | Direzione del vento | gradi (0–360) |
 | Intensità / totale del giorno | mm/h e mm (il totale deve ripartire da zero a mezzanotte) |
-| Pressione | hPa |
+| Pressione | hPa (se è la pressione di stazione, indica la quota nelle preferenze: la scheda la riporta al livello del mare) |
 | UV | indice UV |
 | Radiazione | W/m² |
 

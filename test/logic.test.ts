@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dewPoint, feelsLike, windCardinal, pressureTrend, uvLevel, tempColor, valueAt, parseHistory, downsample, fmt, dayStart, addDays, minutesToTs, niceTicks } from "../src/logic";
+import { dewPoint, feelsLike, windCardinal, pressureTrend, uvLevel, tempColor, valueAt, parseHistory, downsample, fmt, dayStart, addDays, minutesToTs, niceTicks, seaLevelPressure } from "../src/logic";
 
 const near = (a: number, b: number, tol: number) => assert.ok(Math.abs(a - b) <= tol, `${a} non vicino a ${b}`);
 
@@ -97,4 +97,12 @@ test("tacche dell'asse tonde", () => {
   assert.ok(t.every((v) => v >= -3.2 && v <= 17.9));
   assert.ok(t.length >= 3 && t.length <= 8);
   assert.deepEqual(niceTicks(5, 5), [5]);
+});
+
+test("pressione al livello del mare", () => {
+  near(seaLevelPressure(950, 15, 520), 1010, 1.5);
+  near(seaLevelPressure(950, 7, 579), 1019, 3);
+  assert.equal(seaLevelPressure(950, 15, 0), 950);
+  near(seaLevelPressure(1013.25, 15, 0), 1013.25, 0.001);
+  assert.ok(seaLevelPressure(950, null, 500) > 950);
 });

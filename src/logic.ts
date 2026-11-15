@@ -149,3 +149,10 @@ export function niceTicks(lo: number, hi: number, count = 5): number[] {
   for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(Math.round(v / step) * step + 0);
   return out;
 }
+
+/** Pressione ridotta al livello del mare (formula ipsometrica) da pressione di stazione hPa, temperatura °C e quota m. */
+export function seaLevelPressure(pStation: number, tC: number | null, altitudeM: number): number {
+  if (!(altitudeM > 0)) return pStation;
+  const T = (tC ?? 15) + 273.15;
+  return pStation * Math.pow(1 - (0.0065 * altitudeM) / (T + 0.0065 * altitudeM), -5.257);
+}

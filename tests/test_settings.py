@@ -52,3 +52,12 @@ def test_weather_entity_and_forecast_toggle():
     assert out["entities"]["weather"] == "weather.casa"
     assert out["forecast"]["enabled"] is False
     assert settings.normalize({"forecast": {"enabled": "no"}})["forecast"]["enabled"] is True
+
+
+def test_pressure_altitude_is_clamped_and_defaults_to_zero():
+    assert settings.default_settings()["pressure_altitude"] == 0
+    assert settings.normalize({"pressure_altitude": 579})["pressure_altitude"] == 579
+    assert settings.normalize({"pressure_altitude": 99999})["pressure_altitude"] == settings.ALTITUDE_MAX
+    assert settings.normalize({"pressure_altitude": -5})["pressure_altitude"] == 0
+    assert settings.normalize({"pressure_altitude": True})["pressure_altitude"] == 0
+    assert settings.normalize({"pressure_altitude": "579"})["pressure_altitude"] == 0

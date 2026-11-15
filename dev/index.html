@@ -37,7 +37,7 @@ for (const id of Object.keys(val)) states[id] = { entity_id:id, state:String(Num
 states["weather.pws"] = { entity_id:"weather.pws", state:"partlycloudy", last_updated:updated, attributes:{ friendly_name:"Meteo di prova" } };
 states["sensor.altro_sensore"] = { entity_id:"sensor.altro_sensore", state:"21", last_updated:updated, attributes:{ unit_of_measurement:"°C", device_class:"temperature", friendly_name:"Altro sensore" } };
 
-let settings = { title: params.get("title") ?? "Stazione di prova", entities: { temperature:E.t, feels_like:"", humidity:E.h, dew_point:E.dp, wind_speed:E.w, wind_gust:E.g, wind_direction:E.d, rain_rate:E.rr, rain_day:E.rd, pressure:E.p, uv:params.get("uv")==="0"?"":E.uv, radiation:E.r, weather: params.get("fc")==="0"?"":"weather.pws" }, forecast:{ enabled: params.get("fc")!=="0" }, map:{ enabled: params.get("map")!=="0", zoom:7 } };
+let settings = { title: params.get("title") ?? "Stazione di prova", entities: { temperature:E.t, feels_like:"", humidity:E.h, dew_point:E.dp, wind_speed:E.w, wind_gust:E.g, wind_direction:E.d, rain_rate:E.rr, rain_day:E.rd, pressure:E.p, uv:params.get("uv")==="0"?"":E.uv, radiation:E.r, weather: params.get("fc")==="0"?"":"weather.pws" }, forecast:{ enabled: params.get("fc")!=="0" }, pressure_altitude: Number(params.get("alt")||0), map:{ enabled: params.get("map")!=="0", zoom:7 } };
 if (params.get("empty")==="1") { for (const k in settings.entities) settings.entities[k]=""; }
 
 // storico finto: un campione ogni 5 minuti dalle 00:00 (dayStart passato) fino a ora se oggi

@@ -10,12 +10,14 @@ export interface Settings {
   entities: Record<EntityKey, string>;
   map: { enabled: boolean; zoom: number };
   forecast: { enabled: boolean };
+  /** quota della stazione in metri: se > 0 la pressione si riporta al livello del mare */
+  pressure_altitude: number;
 }
 
 export function defaultSettings(): Settings {
   const entities = {} as Record<EntityKey, string>;
   for (const k of ENTITY_KEYS) entities[k] = "";
-  return { title: "", entities, map: { enabled: true, zoom: 7 }, forecast: { enabled: true } };
+  return { title: "", entities, map: { enabled: true, zoom: 7 }, forecast: { enabled: true }, pressure_altitude: 0 };
 }
 
 export interface HassState { entity_id: string; state: string; attributes: Record<string, any>; last_updated?: string; last_changed?: string }

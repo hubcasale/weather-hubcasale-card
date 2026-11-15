@@ -1,6 +1,6 @@
 {
   "name": "weather-hubcasale-card",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Scheda Lovelace per la stazione meteo personale: blocchi con barra temporale, mappa radar, grafici in popup, preferenze salvate dall'integrazione weather_hubcasale.",
   "license": "MIT",
   "author": "Corrado Gamberoni",
