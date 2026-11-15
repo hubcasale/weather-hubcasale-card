@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Weather Hubcasale",
+        "description": "Attiva la scheda meteo. I sensori si scelgono dalla scheda (pulsante preferenze)."
+      }
+    },
+    "abort": {
+      "already_configured": "Weather Hubcasale è già configurato."
+    }
+  }
+}

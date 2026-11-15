@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Weather Hubcasale",
+        "description": "Enable the weather card. Sensors are chosen from the card (preferences button)."
+      }
+    },
+    "abort": {
+      "already_configured": "Weather Hubcasale is already configured."
+    }
+  }
+}

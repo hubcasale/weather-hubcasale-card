@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root { --card-background-color:#1c1c1c; --ha-card-background:#1c1c1c; --primary-text-color:#e1e1e1; --secondary-text-color:#9b9b9b; --divider-color:#3a3a3a; --secondary-background-color:#2a2a2a; --primary-color:#03a9f4; }
+  body.light { --card-background-color:#fff; --ha-card-background:#fff; --primary-text-color:#212121; --secondary-text-color:#727272; --divider-color:#e0e0e0; --secondary-background-color:#f2f2f2; background:#e9ecef; }
+  body { margin:0; padding:12px; background:#111; font-family:Roboto,Helvetica,Arial,sans-serif; }
+  ha-card { display:block; background:var(--card-background-color); border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.25); color:var(--primary-text-color); }
+</style></head>
+<body><div id="root"></div>
+<script src="bundle.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+if (params.get("theme") === "light") document.body.classList.add("light");
+const now = new Date();
+const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+const nowMin = now.getHours()*60 + now.getMinutes();
+const E = { t:"sensor.pws_temperature", h:"sensor.pws_humidity", dp:"sensor.pws_dew_point", w:"sensor.pws_wind", g:"sensor.pws_gust", d:"sensor.pws_wind_dir", rr:"sensor.pws_rain_rate", rd:"sensor.pws_rain_day", p:"sensor.pws_pressure", uv:"sensor.pws_uv", r:"sensor.pws_radiation" };
+// andamento giornaliero finto, in funzione dell'ora (h = ora decimale)
+const curve = {
+  t: h => 9 + 7*Math.sin((h-9)/24*6.283) + 0.3*Math.sin(h*3),
+  h: h => 62 - 22*Math.sin((h-9)/24*6.283),
+  w: h => Math.max(0, 7 + 7*Math.sin((h-11)/24*6.283) + 2*Math.sin(h*4)),
+  p: h => 1017 + 3*Math.sin(h/24*6.283*0.7),
+  r: h => Math.max(0, 520*Math.sin((h-6)/12*3.1416)),
+  d: h => (200 + h*6 + 25*Math.sin(h*2)) % 360,
+};
+const cur = (f) => f(nowMin/60);
+const val = {
+  [E.t]: cur(curve.t), [E.h]: cur(curve.h), [E.dp]: cur(curve.t) - (100-cur(curve.h))/5, [E.w]: cur(curve.w), [E.g]: cur(curve.w)*1.6+2, [E.d]: cur(curve.d),
+  [E.rr]: 0.6, [E.rd]: 2.4, [E.p]: cur(curve.p), [E.uv]: 3, [E.r]: cur(curve.r),
+};
+const unit = { [E.t]:"°C", [E.h]:"%", [E.dp]:"°C", [E.w]:"km/h", [E.g]:"km/h", [E.d]:"°", [E.rr]:"mm/h", [E.rd]:"mm", [E.p]:"hPa", [E.uv]:"UV index", [E.r]:"W/m²" };
+const dc = { [E.t]:"temperature", [E.h]:"humidity", [E.dp]:"temperature", [E.w]:"wind_speed", [E.g]:"wind_speed", [E.rd]:"precipitation", [E.p]:"pressure", [E.r]:"irradiance" };
+const updated = new Date(Date.now()-13000).toISOString();
+const states = {};
+for (const id of Object.keys(val)) states[id] = { entity_id:id, state:String(Number(val[id]).toFixed(2)), last_updated:updated, attributes:{ unit_of_measurement:unit[id], device_class:dc[id], friendly_name:id.replace("sensor.pws_","Stazione ").replace(/_/g," ") } };
+states["sensor.altro_sensore"] = { entity_id:"sensor.altro_sensore", state:"21", last_updated:updated, attributes:{ unit_of_measurement:"°C", device_class:"temperature", friendly_name:"Altro sensore" } };
+
+let settings = { title: params.get("title") ?? "Stazione di prova", entities: { temperature:E.t, feels_like:"", humidity:E.h, dew_point:E.dp, wind_speed:E.w, wind_gust:E.g, wind_direction:E.d, rain_rate:E.rr, rain_day:E.rd, pressure:E.p, uv:params.get("uv")==="0"?"":E.uv, radiation:E.r }, map:{ enabled: params.get("map")!=="0", zoom:7 } };
+if (params.get("empty")==="1") { for (const k in settings.entities) settings.entities[k]=""; }
+
+// storico finto: un campione ogni 5 minuti dalle 00:00 (dayStart passato) fino a ora se oggi
+function histFor(id, start, end) {
+  const keyOf = Object.entries(E).find(([,v]) => v===id)?.[0];
+  const f = { t:curve.t, dp:h=>curve.t(h)-(100-curve.h(h))/5, h:curve.h, w:curve.w, g:h=>curve.w(h)*1.6+2, d:curve.d, p:curve.p, r:curve.r, rr:h=>(h>13&&h<15)?1.2:0, rd:h=>h<13?0:h<15?(h-13)*1.2:2.4, uv:h=>Math.max(0,Math.round(4*Math.sin((h-6)/12*3.1416))) }[keyOf];
+  const out = [];
+  for (let ts = Math.ceil(start/300e3)*300e3; ts <= Math.min(end, Date.now()); ts += 300e3) {
+    const h = (ts - new Date(ts).setHours(0,0,0,0)) / 3600e3;
+    out.push({ s: String(Number(f(h)).toFixed(2)), lu: ts/1000 });
+  }
+  return out;
+}
+const hass = {
+  states, config:{ latitude:0, longitude:0 }, language:"it",
+  callWS: async (msg) => {
+    if (msg.type === "weather_hubcasale/get_settings") return settings;
+    if (msg.type === "weather_hubcasale/set_settings") { settings = msg.settings; return settings; }
+    if (msg.type === "history/history_during_period") { const s=Date.parse(msg.start_time), e=Date.parse(msg.end_time); const o={}; for (const id of msg.entity_ids) o[id]=histFor(id,s,e); return o; }
+    throw new Error("unknown_command");
+  },
+  connection: { subscribeEvents: async () => () => {} },
+};
+// Weather Radar Card finta: una mappa disegnata, solo per vedere il layout
+window.loadCardHelpers = async () => ({ createCardElement: (cfg) => {
+  const el = document.createElement("div");
+  el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 420" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%"><rect width="400" height="420" fill="#222a33"/><path d="M0 300 C80 250 140 330 220 290 S360 240 400 280 V420 H0Z" fill="#2c3a2e"/><circle cx="150" cy="170" r="70" fill="#3b6fb0" opacity=".45"/><circle cx="180" cy="150" r="38" fill="#4fd37a" opacity=".55"/><circle cx="190" cy="145" r="16" fill="#f0d33c" opacity=".7"/><circle cx="215" cy="215" r="5" fill="#fff"/><text x="12" y="410" fill="#aaa" font-size="11">mappa di prova · zoom '+cfg.zoom_level+'</text></svg>';
+  return el; } });
+const el = document.createElement("weather-hubcasale-card");
+el.setConfig({});
+el.hass = hass;
+const w = params.get("w"); if (w) document.getElementById("root").style.width = w+"px";
+document.getElementById("root").appendChild(el);
+const open = params.get("open");
+setTimeout(() => {
+  if (params.get("min")) { el._minutes = Number(params.get("min")); }
+  if (params.get("day")) { el._day = el._day - Number(params.get("day"))*86400e3; el._minutes = el._minutes ?? 720; }
+  if (open === "settings") el._openSettings();
+  if (open && open.startsWith("chart:")) el._openChart(open.slice(6));
+}, 700);
+</script></body></html>

@@ -1,0 +1,19 @@
+{
+  "domain": "weather_hubcasale",
+  "name": "Weather Hubcasale",
+  "codeowners": [
+    "@hubcasale"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "http",
+    "frontend",
+    "websocket_api"
+  ],
+  "documentation": "https://github.com/hubcasale/weather-hubcasale-card",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/hubcasale/weather-hubcasale-card/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
