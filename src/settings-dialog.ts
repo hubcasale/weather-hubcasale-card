@@ -2,37 +2,37 @@ import { LitElement, html, css, nothing } from "lit";
 import { ENTITY_KEYS, defaultSettings } from "./types";
 import type { EntityKey, Hass, Settings } from "./types";
 
-interface Field { key: EntityKey; label: string; hint: string[]; units: string[]; domains?: string[] }
+interface Field { key: EntityKey; label: string; hint: string[]; units: string[]; domains?: string[]; words?: string[] }
 interface Group { title: string; fields: Field[] }
 
 /** Suggerimenti per ogni campo: classe del dispositivo o unita' di misura tipica (servono solo a ordinare l'elenco). */
 const GROUPS: Group[] = [
   { title: "Temperatura", fields: [
-    { key: "temperature", label: "Temperatura", hint: ["temperature"], units: ["°C", "°F"] },
+    { key: "temperature", label: "Temperatura", hint: ["temperature"], units: ["°C", "°F"], words: ["temperat", "temp"] },
     { key: "feels_like", label: "Temperatura percepita (facoltativa, altrimenti calcolata)", hint: ["temperature"], units: ["°C", "°F"] },
   ] },
   { title: "Umidità", fields: [
-    { key: "humidity", label: "Umidità relativa", hint: ["humidity"], units: ["%"] },
-    { key: "dew_point", label: "Punto di rugiada (facoltativo, altrimenti calcolato)", hint: ["temperature"], units: ["°C", "°F"] },
+    { key: "humidity", label: "Umidità relativa", hint: ["humidity"], units: ["%"], words: ["umid", "humid"] },
+    { key: "dew_point", label: "Punto di rugiada (facoltativo, altrimenti calcolato)", hint: ["temperature"], units: ["°C", "°F"], words: ["rugiada", "dew"] },
   ] },
   { title: "Vento", fields: [
-    { key: "wind_speed", label: "Velocità del vento", hint: ["wind_speed", "speed"], units: ["km/h", "m/s", "mph", "kn"] },
-    { key: "wind_gust", label: "Raffica", hint: ["wind_speed", "speed"], units: ["km/h", "m/s", "mph", "kn"] },
-    { key: "wind_direction", label: "Direzione del vento (gradi)", hint: ["wind_direction"], units: ["°"] },
+    { key: "wind_speed", label: "Velocità del vento", hint: ["wind_speed", "speed"], units: ["km/h", "m/s", "mph", "kn"], words: ["vento", "wind", "anemo"] },
+    { key: "wind_gust", label: "Raffica", hint: ["wind_speed", "speed"], units: ["km/h", "m/s", "mph", "kn"], words: ["raffica", "gust"] },
+    { key: "wind_direction", label: "Direzione del vento (gradi)", hint: ["wind_direction"], units: ["°"], words: ["banderuola", "direz", "direction", "bearing"] },
   ] },
   { title: "Precipitazioni", fields: [
-    { key: "rain_rate", label: "Intensità (mm/h)", hint: ["precipitation_intensity"], units: ["mm/h", "mm"] },
-    { key: "rain_day", label: "Totale del giorno (mm)", hint: ["precipitation"], units: ["mm"] },
+    { key: "rain_rate", label: "Intensità (mm/h)", hint: ["precipitation_intensity"], units: ["mm/h", "mm"], words: ["pioggia", "rain", "precip", "pluvio"] },
+    { key: "rain_day", label: "Totale del giorno (mm)", hint: ["precipitation"], units: ["mm"], words: ["pioggia", "rain", "precip", "pluvio"] },
   ] },
   { title: "Pressione", fields: [
-    { key: "pressure", label: "Pressione", hint: ["pressure", "atmospheric_pressure"], units: ["hPa", "mbar", "kPa", "inHg"] },
+    { key: "pressure", label: "Pressione", hint: ["pressure", "atmospheric_pressure"], units: ["hPa", "mbar", "kPa", "inHg"], words: ["press", "baro"] },
   ] },
   { title: "Previsioni", fields: [
     { key: "weather", label: "Entità meteo per le previsioni (weather.…)", hint: [], units: [], domains: ["weather"] },
   ] },
   { title: "UV e radiazione", fields: [
-    { key: "uv", label: "Indice UV (se manca il blocco resta nascosto)", hint: [], units: ["UV index", "UVI"] },
-    { key: "radiation", label: "Radiazione solare (se manca il blocco resta nascosto)", hint: ["irradiance"], units: ["W/m²", "W/m2"] },
+    { key: "uv", label: "Indice UV (se manca il blocco resta nascosto)", hint: [], units: ["UV index", "UVI"], words: ["uv"] },
+    { key: "radiation", label: "Radiazione solare (se manca il blocco resta nascosto)", hint: ["irradiance"], units: ["W/m²", "W/m2"], words: ["irragg", "radiaz", "irradi", "solar", "radiation"] },
   ] },
 ];
 
@@ -97,8 +97,10 @@ export class WhcSettingsDialog extends LitElement {
       const name = String(st.attributes?.friendly_name ?? "").toLowerCase();
       if (q && !id.includes(q) && !name.includes(q)) continue;
       const dc = st.attributes?.device_class, unit = st.attributes?.unit_of_measurement;
-      const sug = (dc && f.hint.includes(dc)) || (unit && f.units.includes(unit));
-      out.push({ id, sug: !!sug, rank: sug ? 0 : 1 });
+      const unitOk = !!((dc && f.hint.includes(dc)) || (unit && f.units.includes(unit)));
+      const wordOk = (f.words ?? []).some((w) => id.includes(w) || name.includes(w));
+      const sug = unitOk || wordOk;
+      out.push({ id, sug, rank: unitOk && wordOk ? 0 : wordOk ? 1 : unitOk ? 2 : 3 });
     }
     out.sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id));
     return out.slice(0, 40);
