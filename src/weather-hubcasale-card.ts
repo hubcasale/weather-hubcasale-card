@@ -23,7 +23,7 @@ function toKmh(v: number | null, unit: string | undefined): number | null {
 export class WeatherHubcasaleCard extends LitElement {
   static properties = {
     _settings: { state: true }, _day: { state: true }, _minutes: { state: true }, _history: { state: true },
-    _tick: { state: true }, _noIntegration: { state: true }, _radarError: { state: true }, _loaded: { state: true },
+    _tick: { state: true }, _noIntegration: { state: true }, _radarError: { state: true }, _forecastError: { state: true }, _loaded: { state: true },
   };
   declare _settings: Settings;
   declare _day: number;
@@ -32,6 +32,7 @@ export class WeatherHubcasaleCard extends LitElement {
   declare _tick: number;
   declare _noIntegration: boolean;
   declare _radarError: string;
+  declare _forecastError: string;
   declare _loaded: boolean;
 
   private _hass!: Hass;
@@ -41,15 +42,19 @@ export class WeatherHubcasaleCard extends LitElement {
   private _unsub?: () => void;
   private _radar?: HTMLElement;
   private _radarZoom = -1;
+  private _blocksCount = 0;
+  private _forecast?: HTMLElement;
+  private _forecastKey = "";
 
   constructor() {
     super();
     this._settings = defaultSettings(); this._day = dayStart(Date.now()); this._minutes = null; this._history = {};
-    this._tick = 0; this._noIntegration = false; this._radarError = ""; this._loaded = false;
+    this._tick = 0; this._noIntegration = false; this._radarError = ""; this._forecastError = ""; this._loaded = false;
   }
 
   setConfig(config: any) { this._config = config ?? {}; }
   getCardSize() { return 9; }
+  getGridOptions() { return { columns: 12, min_columns: 6, rows: "auto" }; }
   static getStubConfig() { return {}; }
 
   set hass(h: Hass) {
@@ -57,6 +62,7 @@ export class WeatherHubcasaleCard extends LitElement {
     this._hass = h;
     if (first) { void this._loadSettings(); void this._subscribe(); }
     if (this._radar) (this._radar as any).hass = h;
+    if (this._forecast) (this._forecast as any).hass = h;
     this.requestUpdate();
   }
   get hass() { return this._hass; }
@@ -75,13 +81,17 @@ export class WeatherHubcasaleCard extends LitElement {
   private async _loadSettings() {
     try {
       const s = await this._hass.callWS<Settings>({ type: "weather_hubcasale/get_settings" });
-      this._settings = { ...defaultSettings(), ...s, entities: { ...defaultSettings().entities, ...s.entities } };
+      this._settings = this._merge(s);
       this._noIntegration = false;
     } catch {
       this._noIntegration = true;
-      try { const raw = localStorage.getItem(LS_KEY); if (raw) this._settings = { ...defaultSettings(), ...JSON.parse(raw) }; } catch { /* nessuna preferenza locale */ }
+      try { const raw = localStorage.getItem(LS_KEY); if (raw) this._settings = this._merge(JSON.parse(raw)); } catch { /* nessuna preferenza locale */ }
     }
     this._loaded = true;
+  }
+  private _merge(s: Partial<Settings>): Settings {
+    const d = defaultSettings();
+    return { ...d, ...s, entities: { ...d.entities, ...(s.entities ?? {}) }, map: { ...d.map, ...(s.map ?? {}) }, forecast: { ...d.forecast, ...(s.forecast ?? {}) } };
   }
   private async _subscribe() {
     try { this._unsub = await this._hass.connection?.subscribeEvents?.(() => void this._loadSettings(), SETTINGS_EVENT); } catch { /* facoltativo */ }
@@ -89,7 +99,7 @@ export class WeatherHubcasaleCard extends LitElement {
   private async _saveSettings(s: Settings) {
     if (!this._noIntegration) {
       const out = await this._hass.callWS<Settings>({ type: "weather_hubcasale/set_settings", settings: s });
-      this._settings = { ...defaultSettings(), ...out, entities: { ...defaultSettings().entities, ...out.entities } };
+      this._settings = this._merge(out);
     } else {
       try { localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch { /* ignore */ }
       this._settings = s;
@@ -108,7 +118,7 @@ export class WeatherHubcasaleCard extends LitElement {
   private _isLive() { return this._isToday() && this._minutes === null; }
   private _nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
   private _ts(): number { return this._isLive() ? Date.now() : minutesToTs(this._day, this._minutes ?? 0); }
-  private _mapped(): string[] { return [...new Set(ENTITY_KEYS.map((k) => this._ent[k]).filter(Boolean))]; }
+  private _mapped(): string[] { return [...new Set(ENTITY_KEYS.filter((k) => k !== "weather").map((k) => this._ent[k]).filter(Boolean))]; }
 
   private async _ensureHistory() {
     if (!this._hass || !this._loaded) return;
@@ -135,6 +145,8 @@ export class WeatherHubcasaleCard extends LitElement {
     return valueAt(this._history[id], this._ts());
   }
   private _unit(key: EntityKey, fallback: string): string { const id = this._ent[key]; return (id && this._hass.states[id]?.attributes?.unit_of_measurement) || fallback; }
+
+  private _showForecast(): boolean { return this._settings.forecast.enabled && !!this._ent.weather; }
 
   private _rateUnit(): string { const u = this._unit("rain_rate", "mm/h"); return u === "mm" ? "mm/h" : u; }
 
@@ -199,11 +211,34 @@ export class WeatherHubcasaleCard extends LitElement {
     }
   }
 
+  private async _mountForecast(host: HTMLElement) {
+    const e = this._ent.weather;
+    const key = `${e}|${this._ent.temperature}`;
+    if (this._forecast && this._forecastKey === key) return;
+    this._forecastKey = key; this._forecast?.remove(); this._forecast = undefined; this._forecastError = "";
+    try {
+      const helpers = await (window as any).loadCardHelpers?.();
+      if (!helpers) throw new Error("no helpers");
+      const cfg: Record<string, any> = { type: "custom:weather-forecast-extended-card", entity: e, show_header: true, hourly_forecast: true, daily_forecast: true, orientation: "vertical" };
+      if (this._ent.temperature) cfg.header_temperature_entity = this._ent.temperature;
+      const el = helpers.createCardElement(cfg);
+      el.hass = this._hass;
+      host.appendChild(el);
+      this._forecast = el;
+      setTimeout(() => { if (el.localName === "hui-error-card") this._forecastError = "Weather Forecast Extended Card non trovata: installala da HACS per vedere le previsioni."; }, 600);
+    } catch {
+      this._forecastError = "Previsioni non disponibili (serve la Weather Forecast Extended Card, installabile da HACS).";
+    }
+  }
+
   protected updated() {
     void this._ensureHistory();
     const host = this.renderRoot.querySelector<HTMLElement>(".mapbox");
     if (host && this._settings.map.enabled && this._loaded) void this._mountRadar(host);
     if (!this._settings.map.enabled && this._radar) { this._radar.remove(); this._radar = undefined; this._radarZoom = -1; }
+    const fhost = this.renderRoot.querySelector<HTMLElement>(".forecastbox");
+    if (fhost && this._showForecast() && this._loaded) void this._mountForecast(fhost);
+    if (!this._showForecast() && this._forecast) { this._forecast.remove(); this._forecast = undefined; this._forecastKey = ""; }
   }
 
   // ---------------------------------------------------------------- vista
@@ -257,20 +292,24 @@ export class WeatherHubcasaleCard extends LitElement {
     return out;
   }
 
+  private _datenav() {
+    const today = this._isToday();
+    const dateLabel = new Date(this._day).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+    return html`<div class="datenav">
+      <button class="nb" aria-label="Giorno precedente" @click=${() => { this._day = addDays(this._day, -1); this._minutes = this._minutes ?? 12 * 60; }}>‹</button>
+      <span class="date">${dateLabel}</span>
+      <button class="nb" aria-label="Giorno successivo" ?disabled=${today} @click=${() => { const n = addDays(this._day, 1); this._day = n; if (n === dayStart(Date.now())) this._minutes = null; }}>›</button>
+      <button class="now" ?disabled=${this._isLive()} @click=${() => { this._day = dayStart(Date.now()); this._minutes = null; }}>Adesso</button>
+    </div>`;
+  }
+
   private _timebar() {
     const today = this._isToday();
     const max = today ? this._nowMinutes() : 1439;
     const value = this._minutes ?? max;
     const pct = (value / 1439) * 100;
-    const dateLabel = new Date(this._day).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
     const label = this._isLive() ? "Adesso" : new Date(minutesToTs(this._day, value)).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
     return html`<div class="timebar">
-      <div class="datenav">
-        <button class="nb" aria-label="Giorno precedente" @click=${() => { this._day = addDays(this._day, -1); this._minutes = this._minutes ?? 12 * 60; }}>‹</button>
-        <span class="date">${dateLabel}</span>
-        <button class="nb" aria-label="Giorno successivo" ?disabled=${today} @click=${() => { const n = addDays(this._day, 1); this._day = n; if (n === dayStart(Date.now())) this._minutes = null; }}>›</button>
-        <button class="now" ?disabled=${this._isLive()} @click=${() => { this._day = dayStart(Date.now()); this._minutes = null; }}>Adesso</button>
-      </div>
       <div class="slider">
         <div class="bubble" style="left:${pct}%">${label}</div>
         <input type="range" min="0" max=${max} step="5" .value=${String(value)} aria-label="Ora della giornata"
@@ -284,6 +323,7 @@ export class WeatherHubcasaleCard extends LitElement {
   render() {
     if (!this._hass) return nothing;
     const blocks = this._blocks();
+    this._blocksCount = blocks.length;
     const newest = this._newest();
     const age = newest === null ? null : Date.now() - newest;
     const connected = age !== null && age < 20 * 60e3;
@@ -292,23 +332,23 @@ export class WeatherHubcasaleCard extends LitElement {
       <header>
         <div class="h-left"><h1>${title}</h1>
           <div class="status"><span class="dot ${connected ? "ok" : "off"}"></span>${connected ? "CONNESSO" : blocks.length ? "NON AGGIORNATO" : "DA CONFIGURARE"}${age !== null ? html` <span class="ago">${new Date(newest!).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} · ${ago(age)}</span>` : nothing}</div></div>
+        ${this._blocksCount ? this._datenav() : nothing}
         <button class="gear" aria-label="Preferenze" title="Preferenze" @click=${() => this._openSettings()}>${ICON_GEAR}</button>
       </header>
-      <div class="main">
-        <section class="left">
-          ${blocks.length ? html`<div class="tiles">${blocks}</div>${this._timebar()}` : html`<div class="empty"><p>Nessun sensore scelto.</p><button class="cta" @click=${() => this._openSettings()}>Apri le preferenze</button></div>`}
-        </section>
+      ${blocks.length ? html`<div class="tiles" style="--n:${Math.min(7, blocks.length)}">${blocks}</div>${this._timebar()}` : html`<div class="empty"><p>Nessun sensore scelto.</p><button class="cta" @click=${() => this._openSettings()}>Apri le preferenze</button></div>`}
+      ${this._settings.map.enabled || this._showForecast() ? html`<div class="bottom ${this._settings.map.enabled && this._showForecast() ? "two" : ""}">
         ${this._settings.map.enabled ? html`<section class="map"><div class="mapbox"></div>${this._radarError ? html`<div class="maperr">${this._radarError}</div>` : nothing}</section>` : nothing}
-      </div>
+        ${this._showForecast() ? html`<section class="forecast"><div class="forecastbox"></div>${this._forecastError ? html`<div class="maperr">${this._forecastError}</div>` : nothing}</section>` : nothing}
+      </div>` : nothing}
       ${this._noIntegration ? html`<div class="warn">Integrazione Weather Hubcasale non trovata: le preferenze sono salvate solo in questo browser.</div>` : nothing}
     </div></ha-card>`;
   }
 
   static styles = css`
-    :host { display: block; container-type: inline-size; color: var(--primary-text-color); --whc-blue: #3d8fd1; --whc-red: #e0463c; --whc-track: var(--divider-color, #3a3d44); }
-    ha-card { padding: 0; overflow: hidden; }
-    .wrap { padding: 12px 14px 14px; }
-    header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+    :host { display: block; height: 100%; container-type: inline-size; color: var(--primary-text-color); --whc-blue: #3d8fd1; --whc-red: #e0463c; --whc-track: var(--divider-color, #3a3d44); }
+    ha-card { padding: 0; overflow: hidden; height: 100%; box-sizing: border-box; }
+    .wrap { padding: 12px 14px 14px; display: flex; flex-direction: column; min-height: 100%; box-sizing: border-box; }
+    header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
     .h-left { flex: 1; min-width: 0; }
     h1 { margin: 0; font-size: 1.35rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .status { font-size: .72rem; letter-spacing: .08em; color: var(--secondary-text-color); margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -316,7 +356,7 @@ export class WeatherHubcasaleCard extends LitElement {
     .dot.ok { background: #38c172; box-shadow: 0 0 6px #38c172; } .dot.off { background: #e0463c; }
     .ago { letter-spacing: 0; text-transform: none; font-size: .78rem; }
     button.gear { width: 48px; height: 48px; border-radius: 24px; border: 1px solid var(--divider-color); background: transparent; color: var(--primary-text-color); cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    .main { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+    .bottom { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); margin-top: 12px; flex: 1; }
     .tiles { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
     .tile { position: relative; display: flex; flex-direction: column; align-items: center; min-height: 196px; padding: 10px 8px 10px; border: 1px solid var(--divider-color); border-radius: 12px; background: var(--ha-card-background, var(--card-background-color, #1c1c1c)); box-sizing: border-box; }
     .t-title { font-size: .66rem; letter-spacing: .05em; text-transform: uppercase; font-weight: 600; color: var(--primary-text-color); align-self: flex-start; padding: 0 44px 0 4px; min-height: 40px; display: flex; align-items: center; box-sizing: border-box; width: 100%; }
@@ -333,11 +373,11 @@ export class WeatherHubcasaleCard extends LitElement {
     .t-val { font-size: 1.9rem; font-weight: 300; line-height: 1.05; margin-top: 2px; }
     .t-val .u { font-size: .8rem; color: var(--secondary-text-color); margin-left: 3px; }
     .t-sub { font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--secondary-text-color); text-align: center; margin-top: 4px; min-height: 1.6em; }
-    .timebar { margin-top: 12px; padding: 4px 4px 0; }
-    .datenav { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+    .timebar { margin-top: 12px; padding: 0 4px; }
+    .datenav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
     .datenav .date { font-size: .95rem; min-width: 9.5em; text-align: center; text-transform: capitalize; }
     button.nb, button.now { min-height: 44px; min-width: 44px; border-radius: 22px; border: 1px solid var(--divider-color); background: transparent; color: var(--primary-text-color); font-size: 1.3rem; cursor: pointer; }
-    button.now { margin-left: auto; font-size: .9rem; padding: 0 16px; }
+    button.now { font-size: .9rem; padding: 0 16px; }
     button[disabled] { opacity: .35; cursor: default; }
     .slider { position: relative; padding-top: 28px; }
     .bubble { position: absolute; top: 0; transform: translateX(-50%); font-size: .8rem; color: var(--primary-text-color); background: var(--secondary-background-color); padding: 1px 8px; border-radius: 10px; pointer-events: none; white-space: nowrap; }
@@ -348,15 +388,22 @@ export class WeatherHubcasaleCard extends LitElement {
     input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; margin-top: -9px; border-radius: 50%; background: var(--whc-blue); border: 3px solid var(--card-background-color, #1c1c1c); box-shadow: 0 0 0 1px var(--whc-blue); }
     input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--whc-blue); border: 3px solid var(--card-background-color, #1c1c1c); }
     .ticks { display: flex; justify-content: space-between; font-size: .72rem; color: var(--secondary-text-color); margin-top: -8px; padding: 0 2px; }
-    .map { position: relative; min-height: 360px; border: 1px solid var(--divider-color); border-radius: 12px; overflow: hidden; background: var(--secondary-background-color, #2a2a2a); }
-    .mapbox, .mapbox > * { display: block; width: 100%; height: 100%; min-height: 360px; }
+    .map, .forecast { position: relative; min-height: 300px; border: 1px solid var(--divider-color); border-radius: 12px; overflow: hidden; background: var(--secondary-background-color, #2a2a2a); }
+    .mapbox, .mapbox > *, .forecastbox, .forecastbox > * { display: block; width: 100%; height: 100%; min-height: 300px; }
     .maperr { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; color: var(--secondary-text-color); font-size: .9rem; }
     .empty { text-align: center; padding: 40px 10px; color: var(--secondary-text-color); }
     button.cta { min-height: 44px; padding: 0 22px; border-radius: 22px; border: 0; background: var(--primary-color, #03a9f4); color: #fff; font-size: 1rem; cursor: pointer; }
     .warn { margin-top: 10px; font-size: .8rem; color: #f0923c; }
-    @container (min-width: 900px) {
-      .main { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: stretch; }
-      .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    @container (min-width: 1000px) {
+      .tiles { grid-template-columns: repeat(var(--n, 7), minmax(0, 1fr)); }
+    }
+    @container (min-width: 760px) {
+      .bottom.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    }
+    @container (max-width: 640px) {
+      .h-left { flex-basis: 100%; }
+      .datenav { margin-left: 0; flex: 1; }
+      .datenav .date { flex: 1; min-width: 0; }
     }
     @container (max-width: 420px) {
       .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }

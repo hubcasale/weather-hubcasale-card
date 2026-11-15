@@ -34,9 +34,10 @@ const dc = { [E.t]:"temperature", [E.h]:"humidity", [E.dp]:"temperature", [E.w]:
 const updated = new Date(Date.now()-13000).toISOString();
 const states = {};
 for (const id of Object.keys(val)) states[id] = { entity_id:id, state:String(Number(val[id]).toFixed(2)), last_updated:updated, attributes:{ unit_of_measurement:unit[id], device_class:dc[id], friendly_name:id.replace("sensor.pws_","Stazione ").replace(/_/g," ") } };
+states["weather.pws"] = { entity_id:"weather.pws", state:"partlycloudy", last_updated:updated, attributes:{ friendly_name:"Meteo di prova" } };
 states["sensor.altro_sensore"] = { entity_id:"sensor.altro_sensore", state:"21", last_updated:updated, attributes:{ unit_of_measurement:"°C", device_class:"temperature", friendly_name:"Altro sensore" } };
 
-let settings = { title: params.get("title") ?? "Stazione di prova", entities: { temperature:E.t, feels_like:"", humidity:E.h, dew_point:E.dp, wind_speed:E.w, wind_gust:E.g, wind_direction:E.d, rain_rate:E.rr, rain_day:E.rd, pressure:E.p, uv:params.get("uv")==="0"?"":E.uv, radiation:E.r }, map:{ enabled: params.get("map")!=="0", zoom:7 } };
+let settings = { title: params.get("title") ?? "Stazione di prova", entities: { temperature:E.t, feels_like:"", humidity:E.h, dew_point:E.dp, wind_speed:E.w, wind_gust:E.g, wind_direction:E.d, rain_rate:E.rr, rain_day:E.rd, pressure:E.p, uv:params.get("uv")==="0"?"":E.uv, radiation:E.r, weather: params.get("fc")==="0"?"":"weather.pws" }, forecast:{ enabled: params.get("fc")!=="0" }, map:{ enabled: params.get("map")!=="0", zoom:7 } };
 if (params.get("empty")==="1") { for (const k in settings.entities) settings.entities[k]=""; }
 
 // storico finto: un campione ogni 5 minuti dalle 00:00 (dayStart passato) fino a ora se oggi
@@ -63,6 +64,12 @@ const hass = {
 // Weather Radar Card finta: una mappa disegnata, solo per vedere il layout
 window.loadCardHelpers = async () => ({ createCardElement: (cfg) => {
   const el = document.createElement("div");
+  if (cfg.type.includes("forecast")) {
+    const days=["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
+    el.style.cssText="padding:14px;box-sizing:border-box;color:var(--primary-text-color)";
+    el.innerHTML='<div style="font-size:2.4rem;font-weight:300">12,3°C <span style="font-size:1rem;color:var(--secondary-text-color)">Parzialmente nuvoloso</span></div><div style="margin:10px 0;display:flex;gap:10px;overflow:hidden">'+Array.from({length:8},(_,i)=>'<div style="text-align:center;min-width:48px"><div style="color:var(--secondary-text-color);font-size:.8rem">'+(14+i)+':00</div><div style="font-size:1.4rem">⛅</div><div>'+(13-i%3)+'°</div></div>').join("")+'</div>'+days.map((d,i)=>'<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--divider-color)"><span style="width:50px">'+d+'</span><span>⛅</span><span style="flex:1;height:6px;border-radius:3px;background:linear-gradient(90deg,#3d8fd1,#f0b43c)"></span><span>'+(8+i%3)+'° / '+(17-i%4)+'°</span></div>').join("")+'<div style="color:var(--secondary-text-color);font-size:.75rem;margin-top:6px">previsioni di prova</div>';
+    return el;
+  }
   el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 420" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%"><rect width="400" height="420" fill="#222a33"/><path d="M0 300 C80 250 140 330 220 290 S360 240 400 280 V420 H0Z" fill="#2c3a2e"/><circle cx="150" cy="170" r="70" fill="#3b6fb0" opacity=".45"/><circle cx="180" cy="150" r="38" fill="#4fd37a" opacity=".55"/><circle cx="190" cy="145" r="16" fill="#f0d33c" opacity=".7"/><circle cx="215" cy="215" r="5" fill="#fff"/><text x="12" y="410" fill="#aaa" font-size="11">mappa di prova · zoom '+cfg.zoom_level+'</text></svg>';
   return el; } });
 const el = document.createElement("weather-hubcasale-card");
@@ -77,4 +84,5 @@ setTimeout(() => {
   if (open === "settings") el._openSettings();
   if (open && open.startsWith("chart:")) el._openChart(open.slice(6));
 }, 700);
+setTimeout(() => { document.title = 'H:' + Object.keys(el._history).length + ' day:' + el._day + ' min:' + el._minutes + ' key:' + el._histKey.slice(0,40) + ' pts:' + (el._history['sensor.pws_temperature']||[]).length; }, 3500);
 </script></body></html>

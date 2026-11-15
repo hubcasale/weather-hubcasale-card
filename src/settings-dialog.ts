@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing } from "lit";
 import { ENTITY_KEYS, defaultSettings } from "./types";
 import type { EntityKey, Hass, Settings } from "./types";
 
-interface Field { key: EntityKey; label: string; hint: string[]; units: string[] }
+interface Field { key: EntityKey; label: string; hint: string[]; units: string[]; domains?: string[] }
 interface Group { title: string; fields: Field[] }
 
 /** Suggerimenti per ogni campo: classe del dispositivo o unita' di misura tipica (servono solo a ordinare l'elenco). */
@@ -27,6 +27,9 @@ const GROUPS: Group[] = [
   { title: "Pressione", fields: [
     { key: "pressure", label: "Pressione", hint: ["pressure", "atmospheric_pressure"], units: ["hPa", "mbar", "kPa", "inHg"] },
   ] },
+  { title: "Previsioni", fields: [
+    { key: "weather", label: "Entità meteo per le previsioni (weather.…)", hint: [], units: [], domains: ["weather"] },
+  ] },
   { title: "UV e radiazione", fields: [
     { key: "uv", label: "Indice UV (se manca il blocco resta nascosto)", hint: [], units: ["UV index", "UVI"] },
     { key: "radiation", label: "Radiazione solare (se manca il blocco resta nascosto)", hint: ["irradiance"], units: ["W/m²", "W/m2"] },
@@ -49,7 +52,7 @@ export class WhcSettingsDialog extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this._draft = JSON.parse(JSON.stringify(this.settings ?? defaultSettings()));
+    this._draft = { ...defaultSettings(), ...JSON.parse(JSON.stringify(this.settings ?? defaultSettings())) };
     this.addEventListener("click", this._close);
   }
 
@@ -89,7 +92,8 @@ export class WhcSettingsDialog extends LitElement {
     const q = this._q.trim().toLowerCase();
     const out: { id: string; sug: boolean; rank: number }[] = [];
     for (const [id, st] of Object.entries(this.hass.states)) {
-      if (!id.startsWith("sensor.") && !id.startsWith("number.") && !id.startsWith("input_number.")) continue;
+      const domains = f.domains ?? ["sensor", "number", "input_number"];
+      if (!domains.includes(id.split(".")[0])) continue;
       const name = String(st.attributes?.friendly_name ?? "").toLowerCase();
       if (q && !id.includes(q) && !name.includes(q)) continue;
       const dc = st.attributes?.device_class, unit = st.attributes?.unit_of_measurement;
@@ -128,6 +132,7 @@ export class WhcSettingsDialog extends LitElement {
           <h3>Generale</h3>
           <div class="field"><label>Titolo (facoltativo)</label><div class="row"><input type="text" .value=${this._draft.title} placeholder="Nome della stazione" @input=${(e: Event) => (this._draft = { ...this._draft, title: (e.target as HTMLInputElement).value })} /></div></div>
           ${GROUPS.map((g) => html`<h3>${g.title}</h3>${g.fields.map((f) => this._field(f))}`)}
+          <label class="sw"><input type="checkbox" .checked=${this._draft.forecast.enabled} @change=${(e: Event) => (this._draft = { ...this._draft, forecast: { enabled: (e.target as HTMLInputElement).checked } })} /> Mostra le previsioni (Weather Forecast Extended Card)</label>
           <h3>Mappa</h3>
           <label class="sw"><input type="checkbox" .checked=${this._draft.map.enabled} @change=${(e: Event) => (this._draft = { ...this._draft, map: { ...this._draft.map, enabled: (e.target as HTMLInputElement).checked } })} /> Mostra la mappa radar (Weather Radar Card)</label>
           <div class="field"><label>Zoom iniziale (3 = regione, 12 = quartiere)</label><div class="row"><input type="number" min="3" max="12" .value=${String(this._draft.map.zoom)} @input=${(e: Event) => (this._draft = { ...this._draft, map: { ...this._draft.map, zoom: Number((e.target as HTMLInputElement).value) || 7 } })} /></div></div>

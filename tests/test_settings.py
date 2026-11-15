@@ -13,6 +13,8 @@ def test_default_has_every_key():
     d = settings.default_settings()
     assert set(d["entities"]) == set(settings.ENTITY_KEYS)
     assert d["map"] == {"enabled": True, "zoom": 7}
+    assert d["forecast"] == {"enabled": True}
+    assert "weather" in d["entities"]
 
 
 def test_garbage_input_gives_defaults():
@@ -43,3 +45,10 @@ def test_title_is_trimmed_and_limited():
 def test_normalize_is_idempotent():
     once = settings.normalize({"entities": {"temperature": "sensor.t"}, "map": {"zoom": 9}, "title": "A"})
     assert settings.normalize(once) == once
+
+
+def test_weather_entity_and_forecast_toggle():
+    out = settings.normalize({"entities": {"weather": "Weather.Casa"}, "forecast": {"enabled": False}})
+    assert out["entities"]["weather"] == "weather.casa"
+    assert out["forecast"]["enabled"] is False
+    assert settings.normalize({"forecast": {"enabled": "no"}})["forecast"]["enabled"] is True
