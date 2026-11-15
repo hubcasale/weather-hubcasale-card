@@ -52,7 +52,10 @@ export class WeatherHubcasaleCard extends LitElement {
     this._tick = 0; this._noIntegration = false; this._radarError = ""; this._forecastError = ""; this._loaded = false;
   }
 
-  setConfig(config: any) { this._config = config ?? {}; }
+  setConfig(config: any) {
+    this._config = config ?? {};
+    this.toggleAttribute("fill", this._config.fill_height === true);
+  }
   getCardSize() { return 9; }
   getGridOptions() { return { columns: 12, min_columns: 6, rows: "auto" }; }
   static getStubConfig() { return {}; }
@@ -347,6 +350,7 @@ export class WeatherHubcasaleCard extends LitElement {
   static styles = css`
     :host { display: block; height: 100%; container-type: inline-size; color: var(--primary-text-color); --whc-blue: #3d8fd1; --whc-red: #e0463c; --whc-track: var(--divider-color, #3a3d44); }
     ha-card { padding: 0; overflow: hidden; height: 100%; box-sizing: border-box; }
+    :host([fill]) ha-card { min-height: calc(100vh - var(--header-height, 56px) - 24px); min-height: calc(100dvh - var(--header-height, 56px) - 24px); }
     .wrap { padding: 12px 14px 14px; display: flex; flex-direction: column; min-height: 100%; box-sizing: border-box; }
     header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
     .h-left { flex: 1; min-width: 0; }

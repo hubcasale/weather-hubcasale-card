@@ -30,7 +30,7 @@ Si compone di:
 1. HACS → ⋮ → *Repository personalizzati* → `https://github.com/hubcasale/weather-hubcasale-card`, categoria **Integrazione**.
 2. Scarica *Weather Hubcasale* e riavvia Home Assistant.
 3. *Impostazioni → Dispositivi e servizi → Aggiungi integrazione → Weather Hubcasale*.
-4. In una plancia aggiungi una scheda *manuale* con `type: custom:weather-hubcasale-card` (la scheda è servita dall'integrazione, non serve aggiungere risorse).
+4. In una plancia aggiungi una scheda *manuale* con `type: custom:weather-hubcasale-card` (la scheda è servita dall'integrazione, non serve aggiungere risorse). In una vista a *pannello* aggiungi `fill_height: true` perché mappa e previsioni occupino tutta l'altezza dello schermo.
 5. Premi l'ingranaggio e scegli i sensori. Le preferenze valgono per tutti i dispositivi.
 
 Con la scheda aperta su un tablet con Fully Kiosk, dopo un aggiornamento svuota la cache del browser.
