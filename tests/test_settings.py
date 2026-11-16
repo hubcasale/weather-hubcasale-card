@@ -61,3 +61,9 @@ def test_pressure_altitude_is_clamped_and_defaults_to_zero():
     assert settings.normalize({"pressure_altitude": -5})["pressure_altitude"] == 0
     assert settings.normalize({"pressure_altitude": True})["pressure_altitude"] == 0
     assert settings.normalize({"pressure_altitude": "579"})["pressure_altitude"] == 0
+
+
+def test_tablet_flag():
+    assert settings.default_settings()["tablet"] is False
+    assert settings.normalize({"tablet": True})["tablet"] is True
+    assert settings.normalize({"tablet": "si"})["tablet"] is False
