@@ -23,6 +23,7 @@ Si compone di:
 - **Sotto**, a tutta larghezza, due riquadri affiancati: la **mappa radar** ([Weather Radar Card](https://github.com/Makin-Things/weather-radar-card)) e le **previsioni** (Weather Forecast Extended Card (`custom:weather-forecast-extended-card`, da HACS)). Su schermi stretti si impilano.
 - **I blocchi senza sensore restano nascosti** (per esempio UV, se non hai il sensore).
 - **Grafici** (popup): temperatura e rugiada, umidità, vento e raffica, direzione del vento, precipitazioni, pressione, radiazione e UV. Tocca il grafico per leggere i valori.
+- **Vista tablet** (spunta nelle preferenze): con la scheda larga almeno 900 px compare a destra una colonna a tutta altezza con il nome della scheda, il selettore dei giorni e la **barra temporale verticale** (00 in alto, 24 in basso, il cursore sull'ora attuale); a sinistra i blocchi e, sotto, mappa e previsioni occupano tutta l'altezza dello schermo. Sotto i 900 px torna alla vista normale.
 - **Layout adattabile**: un solo layout che si riorganizza in base alla larghezza (telefono, tablet, PC), pensato anche per un tablet a muro (bersagli da 44 px, niente hover).
 
 ## Installazione (HACS)
