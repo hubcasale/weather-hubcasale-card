@@ -315,16 +315,21 @@ export class WeatherHubcasaleCard extends LitElement {
 
   private _timebar() {
     const today = this._isToday();
-    const max = today ? this._nowMinutes() : 1439;
-    const value = this._minutes ?? max;
-    const pct = (value / 1439) * 100;
+    const nowMin = this._nowMinutes();
+    const value = this._minutes ?? (today ? nowMin : 1439);
+    const p = (value / 1439) * 100;
+    const nowPct = today ? (nowMin / 1439) * 100 : 100;
     const label = this._isLive() ? "Adesso" : new Date(minutesToTs(this._day, value)).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
     return html`<div class="timebar">
       <div class="slider">
-        <div class="bubble" style="left:${pct}%">${label}</div>
-        <input type="range" min="0" max=${max} step="5" .value=${String(value)} aria-label="Ora della giornata"
-          style="--p:${(value / Math.max(1, max)) * 100}%;--w:${(max / 1439) * 100}%"
-          @input=${(ev: Event) => { const v = Number((ev.target as HTMLInputElement).value); this._minutes = today && v >= max ? null : v; }} />
+        <div class="bubble" style="left:calc(12px + (100% - 24px) * ${p / 100})">${label}</div>
+        <input type="range" min="0" max="1439" step="5" .value=${String(value)} aria-label="Ora della giornata"
+          style="--p:${p}%;--now:${nowPct}%"
+          @input=${(ev: Event) => {
+            const v = Number((ev.target as HTMLInputElement).value);
+            if (today && v >= nowMin - 2) { this._minutes = null; (ev.target as HTMLInputElement).value = String(nowMin); }  // oltre «adesso» non si va: si torna in diretta
+            else this._minutes = v;
+          }} />
         <div class="ticks">${[0, 3, 6, 9, 12, 15, 18, 21].map((h) => html`<span>${String(h).padStart(2, "0")}</span>`)}<span>24</span></div>
       </div>
     </div>`;
@@ -356,51 +361,56 @@ export class WeatherHubcasaleCard extends LitElement {
 
   static styles = css`
     :host { display: block; height: 100%; container-type: inline-size; color: var(--primary-text-color); --whc-blue: #3d8fd1; --whc-red: #e0463c; --whc-track: var(--divider-color, #3a3d44); }
-    ha-card { padding: 0; overflow: hidden; height: 100%; box-sizing: border-box; }
-    :host([fill]) ha-card { min-height: calc(100vh - var(--header-height, 56px) - 24px); min-height: calc(100dvh - var(--header-height, 56px) - 24px); }
-    .wrap { padding: 12px 14px 14px; display: flex; flex-direction: column; min-height: 100%; box-sizing: border-box; }
-    header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    ha-card { display: block; padding: 0; overflow: hidden; height: 100%; box-sizing: border-box; }
+    :host([fill]) ha-card { height: calc(100vh - var(--header-height, 56px) - 16px); height: calc(100dvh - var(--header-height, 56px) - 16px); min-height: 560px; }
+    :host([fill]) .wrap { height: 100%; min-height: 0; }
+    :host([fill]) .bottom { min-height: 0; grid-template-rows: minmax(0, 1fr); }
+    :host([fill]) .map, :host([fill]) .forecast { min-height: 0; }
+    :host([fill]) .forecastbox { overflow-y: auto; overflow-x: hidden; }
+    :host([fill]) .forecastbox > * { height: auto; min-height: 100%; }
+    .wrap { padding: 8px 12px 12px; display: flex; flex-direction: column; min-height: 100%; box-sizing: border-box; }
+    header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
     .h-left { flex: 1; min-width: 0; }
     h1 { margin: 0; font-size: 1.35rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .status { font-size: .72rem; letter-spacing: .08em; color: var(--secondary-text-color); margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: #888; }
     .dot.ok { background: #38c172; box-shadow: 0 0 6px #38c172; } .dot.off { background: #e0463c; }
     .ago { letter-spacing: 0; text-transform: none; font-size: .78rem; }
-    button.gear { width: 48px; height: 48px; border-radius: 24px; border: 1px solid var(--divider-color); background: transparent; color: var(--primary-text-color); cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    .bottom { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); margin-top: 12px; flex: 1; }
+    button.gear { width: 44px; height: 44px; border-radius: 22px; border: 1px solid var(--divider-color); background: transparent; color: var(--primary-text-color); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .bottom { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); margin-top: 8px; flex: 1; }
     .tiles { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
-    .tile { position: relative; display: flex; flex-direction: column; align-items: center; min-height: 196px; padding: 10px 8px 10px; border: 1px solid var(--divider-color); border-radius: 12px; background: var(--ha-card-background, var(--card-background-color, #1c1c1c)); box-sizing: border-box; }
-    .t-title { font-size: .66rem; letter-spacing: .05em; text-transform: uppercase; font-weight: 600; color: var(--primary-text-color); align-self: flex-start; padding: 0 44px 0 4px; min-height: 40px; display: flex; align-items: center; box-sizing: border-box; width: 100%; }
+    .tile { position: relative; display: flex; flex-direction: column; align-items: center; min-height: 168px; padding: 6px 8px 8px; border: 1px solid var(--divider-color); border-radius: 12px; background: var(--ha-card-background, var(--card-background-color, #1c1c1c)); box-sizing: border-box; }
+    .t-title { font-size: .66rem; letter-spacing: .05em; text-transform: uppercase; font-weight: 600; color: var(--primary-text-color); align-self: flex-start; padding: 0 44px 0 4px; min-height: 36px; display: flex; align-items: center; box-sizing: border-box; width: 100%; }
     .tile.two .t-title { padding-right: 88px; }
     .cbtns { position: absolute; top: 0; right: 0; display: flex; }
     button.cbtn { width: 44px; height: 44px; border: 0; background: transparent; color: var(--secondary-text-color); cursor: pointer; border-radius: 22px; display: flex; align-items: center; justify-content: center; }
     button.cbtn:active { background: var(--secondary-background-color); }
-    .gauge { width: 100%; max-width: 150px; height: auto; margin-top: -10px; }
+    .gauge { width: 100%; max-width: 128px; height: auto; margin-top: -10px; }
     .track { stroke: var(--whc-track); }
     .tick { stroke: var(--secondary-text-color); stroke-width: .7; opacity: .7; }
     .tick-major { stroke: var(--primary-text-color); stroke-width: 1.4; }
     .lbl { fill: var(--secondary-text-color); font-size: 7px; } .lbl.small { font-size: 6px; } .lbl.tiny { font-size: 5px; }
     .outline { stroke: var(--secondary-text-color); } .dial, .disc { fill: var(--secondary-background-color, #2a2a2a); stroke: var(--divider-color); }
-    .t-val { font-size: 1.9rem; font-weight: 300; line-height: 1.05; margin-top: 2px; }
+    .t-val { font-size: 1.75rem; font-weight: 300; line-height: 1.05; margin-top: 0; }
     .t-val .u { font-size: .8rem; color: var(--secondary-text-color); margin-left: 3px; }
     .t-sub { font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--secondary-text-color); text-align: center; margin-top: 4px; min-height: 1.6em; }
-    .timebar { margin-top: 12px; padding: 0 4px; }
+    .timebar { margin-top: 6px; padding: 0 4px; }
     .datenav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
     .datenav .date { font-size: .95rem; min-width: 9.5em; text-align: center; text-transform: capitalize; }
     button.nb, button.now { min-height: 44px; min-width: 44px; border-radius: 22px; border: 1px solid var(--divider-color); background: transparent; color: var(--primary-text-color); font-size: 1.3rem; cursor: pointer; }
     button.now { font-size: .9rem; padding: 0 16px; }
     button[disabled] { opacity: .35; cursor: default; }
-    .slider { position: relative; padding-top: 28px; }
+    .slider { position: relative; padding-top: 24px; }
     .bubble { position: absolute; top: 0; transform: translateX(-50%); font-size: .8rem; color: var(--primary-text-color); background: var(--secondary-background-color); padding: 1px 8px; border-radius: 10px; pointer-events: none; white-space: nowrap; }
-    input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 44px; margin: 0; background: transparent; touch-action: pan-y; }
-    input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--whc-blue) var(--p), var(--divider-color) var(--p)); }
+    input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 40px; margin: 0; background: transparent; touch-action: pan-y; }
+    input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--whc-blue) var(--p), var(--divider-color) var(--p) var(--now, 100%), rgba(127, 127, 127, .18) var(--now, 100%)); }
     input[type=range]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--divider-color); }
     input[type=range]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--whc-blue); }
     input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; margin-top: -9px; border-radius: 50%; background: var(--whc-blue); border: 3px solid var(--card-background-color, #1c1c1c); box-shadow: 0 0 0 1px var(--whc-blue); }
     input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--whc-blue); border: 3px solid var(--card-background-color, #1c1c1c); }
     .ticks { display: flex; justify-content: space-between; font-size: .72rem; color: var(--secondary-text-color); margin-top: -8px; padding: 0 2px; }
-    .map, .forecast { position: relative; min-height: 300px; border: 1px solid var(--divider-color); border-radius: 12px; overflow: hidden; background: var(--secondary-background-color, #2a2a2a); }
-    .mapbox, .mapbox > *, .forecastbox, .forecastbox > * { display: block; width: 100%; height: 100%; min-height: 300px; }
+    .map, .forecast { position: relative; min-height: 280px; border: 1px solid var(--divider-color); border-radius: 12px; overflow: hidden; background: var(--secondary-background-color, #2a2a2a); }
+    .mapbox, .mapbox > *, .forecastbox, .forecastbox > * { display: block; width: 100%; height: 100%; min-height: inherit; }
     .maperr { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; color: var(--secondary-text-color); font-size: .9rem; }
     .empty { text-align: center; padding: 40px 10px; color: var(--secondary-text-color); }
     button.cta { min-height: 44px; padding: 0 22px; border-radius: 22px; border: 0; background: var(--primary-color, #03a9f4); color: #fff; font-size: 1rem; cursor: pointer; }

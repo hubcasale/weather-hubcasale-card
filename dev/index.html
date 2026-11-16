@@ -6,7 +6,7 @@
   body { margin:0; padding:12px; background:#111; font-family:Roboto,Helvetica,Arial,sans-serif; }
   ha-card { display:block; background:var(--card-background-color); border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.25); color:var(--primary-text-color); }
 </style></head>
-<body><div id="root"></div>
+<body><div id="hdr"></div><div id="root"></div>
 <script src="bundle.js"></script>
 <script>
 const params = new URLSearchParams(location.search);
@@ -75,6 +75,8 @@ window.loadCardHelpers = async () => ({ createCardElement: (cfg) => {
 const el = document.createElement("weather-hubcasale-card");
 el.setConfig({});
 el.hass = hass;
+if (params.get("hdr")) { const h=document.getElementById("hdr"); h.style.cssText="height:"+params.get("hdr")+"px;background:#222;margin:-12px -12px 12px"; document.documentElement.style.setProperty("--header-height", params.get("hdr")+"px"); }
+if (params.get("fill")==="1") el.setConfig({ fill_height:true });
 const w = params.get("w"); if (w) document.getElementById("root").style.width = w+"px";
 document.getElementById("root").appendChild(el);
 const open = params.get("open");
