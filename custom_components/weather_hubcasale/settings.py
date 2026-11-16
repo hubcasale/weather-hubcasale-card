@@ -32,6 +32,7 @@ def default_settings() -> dict[str, Any]:
         "map": {"enabled": True, "zoom": 7},
         "forecast": {"enabled": True},
         "pressure_altitude": 0,
+        "tablet": False,
     }
 
 
@@ -62,4 +63,6 @@ def normalize(data: Any) -> dict[str, Any]:
     altitude = data.get("pressure_altitude")
     if isinstance(altitude, (int, float)) and not isinstance(altitude, bool):
         result["pressure_altitude"] = max(0, min(ALTITUDE_MAX, int(altitude)))
+    if isinstance(data.get("tablet"), bool):
+        result["tablet"] = data["tablet"]
     return result

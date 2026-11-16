@@ -12,12 +12,14 @@ export interface Settings {
   forecast: { enabled: boolean };
   /** quota della stazione in metri: se > 0 la pressione si riporta al livello del mare */
   pressure_altitude: number;
+  /** vista tablet: barra temporale verticale a destra, a tutta altezza */
+  tablet: boolean;
 }
 
 export function defaultSettings(): Settings {
   const entities = {} as Record<EntityKey, string>;
   for (const k of ENTITY_KEYS) entities[k] = "";
-  return { title: "", entities, map: { enabled: true, zoom: 7 }, forecast: { enabled: true }, pressure_altitude: 0 };
+  return { title: "", entities, map: { enabled: true, zoom: 7 }, forecast: { enabled: true }, pressure_altitude: 0, tablet: false };
 }
 
 export interface HassState { entity_id: string; state: string; attributes: Record<string, any>; last_updated?: string; last_changed?: string }

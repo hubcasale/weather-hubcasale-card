@@ -132,6 +132,7 @@ export class WhcSettingsDialog extends LitElement {
         <div class="head"><h2>Preferenze</h2><button class="x" aria-label="Chiudi" @click=${this._close}>×</button></div>
         <div class="body" @click=${(e: Event) => { e.stopPropagation(); this._open = null; }}>
           <h3>Generale</h3>
+          <label class="sw"><input type="checkbox" .checked=${!!this._draft.tablet} @change=${(e: Event) => (this._draft = { ...this._draft, tablet: (e.target as HTMLInputElement).checked })} /> Vista tablet (barra temporale verticale a destra, tutto in una schermata)</label>
           <div class="field"><label>Titolo (facoltativo)</label><div class="row"><input type="text" .value=${this._draft.title} placeholder="Nome della stazione" @input=${(e: Event) => (this._draft = { ...this._draft, title: (e.target as HTMLInputElement).value })} /></div></div>
           ${GROUPS.map((g) => html`<h3>${g.title}</h3>${g.fields.map((f) => this._field(f))}`)}
           <label class="sw"><input type="checkbox" .checked=${this._draft.forecast.enabled} @change=${(e: Event) => (this._draft = { ...this._draft, forecast: { enabled: (e.target as HTMLInputElement).checked } })} /> Mostra le previsioni (Weather Forecast Extended Card)</label>

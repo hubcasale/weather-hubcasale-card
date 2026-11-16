@@ -23,13 +23,14 @@ function toKmh(v: number | null, unit: string | undefined): number | null {
 export class WeatherHubcasaleCard extends LitElement {
   static properties = {
     _settings: { state: true }, _day: { state: true }, _minutes: { state: true }, _history: { state: true },
-    _tick: { state: true }, _noIntegration: { state: true }, _radarError: { state: true }, _forecastError: { state: true }, _loaded: { state: true },
+    _tick: { state: true }, _width: { state: true }, _noIntegration: { state: true }, _radarError: { state: true }, _forecastError: { state: true }, _loaded: { state: true },
   };
   declare _settings: Settings;
   declare _day: number;
   declare _minutes: number | null;
   declare _history: Record<string, Series>;
   declare _tick: number;
+  declare _width: number;
   declare _noIntegration: boolean;
   declare _radarError: string;
   declare _forecastError: string;
@@ -43,18 +44,19 @@ export class WeatherHubcasaleCard extends LitElement {
   private _radar?: HTMLElement;
   private _radarZoom = -1;
   private _blocksCount = 0;
+  private _ro?: ResizeObserver;
+  private _vdrag = false;
   private _forecast?: HTMLElement;
   private _forecastKey = "";
 
   constructor() {
     super();
     this._settings = defaultSettings(); this._day = dayStart(Date.now()); this._minutes = null; this._history = {};
-    this._tick = 0; this._noIntegration = false; this._radarError = ""; this._forecastError = ""; this._loaded = false;
+    this._tick = 0; this._width = 0; this._noIntegration = false; this._radarError = ""; this._forecastError = ""; this._loaded = false;
   }
 
   setConfig(config: any) {
     this._config = config ?? {};
-    this.toggleAttribute("fill", this._config.fill_height === true);
   }
   getCardSize() { return 9; }
   getGridOptions() { return { columns: 12, min_columns: 6, rows: "auto" }; }
@@ -72,11 +74,14 @@ export class WeatherHubcasaleCard extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this._ro = new ResizeObserver((es) => { const w = es[0].contentRect.width; if (Math.abs(w - this._width) > 1) this._width = w; });
+    this._ro.observe(this);
     this._timer = window.setInterval(() => { this._tick++; if (this._isToday() && this._tick % 20 === 0) { this._histKey = ""; } }, 15000);
   }
   disconnectedCallback() {
     super.disconnectedCallback();
     if (this._timer) clearInterval(this._timer);
+    this._ro?.disconnect();
     this._unsub?.();
   }
 
@@ -94,7 +99,7 @@ export class WeatherHubcasaleCard extends LitElement {
   }
   private _merge(s: Partial<Settings>): Settings {
     const d = defaultSettings();
-    return { ...d, ...s, entities: { ...d.entities, ...(s.entities ?? {}) }, map: { ...d.map, ...(s.map ?? {}) }, forecast: { ...d.forecast, ...(s.forecast ?? {}) }, pressure_altitude: typeof s.pressure_altitude === "number" ? s.pressure_altitude : 0 };
+    return { ...d, ...s, entities: { ...d.entities, ...(s.entities ?? {}) }, map: { ...d.map, ...(s.map ?? {}) }, forecast: { ...d.forecast, ...(s.forecast ?? {}) }, pressure_altitude: typeof s.pressure_altitude === "number" ? s.pressure_altitude : 0, tablet: s.tablet === true };
   }
   private async _subscribe() {
     try { this._unsub = await this._hass.connection?.subscribeEvents?.(() => void this._loadSettings(), SETTINGS_EVENT); } catch { /* facoltativo */ }
@@ -148,6 +153,14 @@ export class WeatherHubcasaleCard extends LitElement {
     return valueAt(this._history[id], this._ts());
   }
   private _unit(key: EntityKey, fallback: string): string { const id = this._ent[key]; return (id && this._hass.states[id]?.attributes?.unit_of_measurement) || fallback; }
+
+  private _tabletMode(): boolean { return this._settings.tablet && this._width >= 900; }
+
+  protected willUpdate() {
+    const tab = this._tabletMode();
+    this.toggleAttribute("tablet", tab);
+    this.toggleAttribute("fill", this._config.fill_height === true || tab);
+  }
 
   private _showForecast(): boolean { return this._settings.forecast.enabled && !!this._ent.weather; }
 
@@ -203,7 +216,7 @@ export class WeatherHubcasaleCard extends LitElement {
   // ---------------------------------------------------------------- mappa
   private async _mountRadar(host: HTMLElement) {
     const zoom = this._settings.map.zoom;
-    if (this._radar && this._radarZoom === zoom) return;
+    if (this._radar && this._radarZoom === zoom) { if (this._radar.parentElement !== host) host.appendChild(this._radar); return; }
     this._radarZoom = zoom; this._radar?.remove(); this._radar = undefined; this._radarError = "";
     try {
       const helpers = await (window as any).loadCardHelpers?.();
@@ -222,7 +235,7 @@ export class WeatherHubcasaleCard extends LitElement {
   private async _mountForecast(host: HTMLElement) {
     const e = this._ent.weather;
     const key = `${e}|${this._ent.temperature}`;
-    if (this._forecast && this._forecastKey === key) return;
+    if (this._forecast && this._forecastKey === key) { if (this._forecast.parentElement !== host) host.appendChild(this._forecast); return; }
     this._forecastKey = key; this._forecast?.remove(); this._forecast = undefined; this._forecastError = "";
     try {
       const helpers = await (window as any).loadCardHelpers?.();
@@ -250,7 +263,8 @@ export class WeatherHubcasaleCard extends LitElement {
   }
 
   // ---------------------------------------------------------------- vista
-  private _tile(title: string, gauge: unknown, value: string, unit: string, sub: unknown, chartBtns: { kind: ChartKind; label: string }[]) {
+  private _tile(title0: string, gauge: unknown, value: string, unit: string, sub: unknown, chartBtns: { kind: ChartKind; label: string }[]) {
+    const title = this._tabletMode() && title0 === "Precipitazioni" ? "Pioggia" : title0;
     return html`<div class="tile ${chartBtns.length > 1 ? "two" : ""}">
       <div class="t-title">${title}</div>
       <div class="cbtns">${chartBtns.map((b) => html`<button class="cbtn" title=${b.label} aria-label=${b.label} @click=${() => this._openChart(b.kind)}>${ICON_CHART}</button>`)}</div>
@@ -335,6 +349,50 @@ export class WeatherHubcasaleCard extends LitElement {
     </div>`;
   }
 
+  /** Data compatta per la colonna a destra della vista tablet. */
+  private _datenavRail() {
+    const today = this._isToday();
+    const d = new Date(this._day);
+    const l1 = d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric" });
+    const l2 = d.toLocaleDateString("it-IT", { month: "short" });
+    return html`<div class="rdate">
+      <span class="rdl">${l1} ${l2}</span>
+      <button class="nb" aria-label="Giorno precedente" @click=${() => { this._day = addDays(this._day, -1); this._minutes = this._minutes ?? 12 * 60; }}>‹</button>
+      <button class="nb" aria-label="Giorno successivo" ?disabled=${today} @click=${() => { const n = addDays(this._day, 1); this._day = n; if (n === dayStart(Date.now())) this._minutes = null; }}>›</button>
+      <button class="now" ?disabled=${this._isLive()} @click=${() => { this._day = dayStart(Date.now()); this._minutes = null; }}>Adesso</button>
+    </div>`;
+  }
+
+  private _vSet(ev: PointerEvent) {
+    const zone = this.renderRoot.querySelector<HTMLElement>(".vin");
+    if (!zone) return;
+    const r = zone.getBoundingClientRect();
+    const f = Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height));
+    const v = Math.round((f * 1439) / 5) * 5;
+    if (this._isToday() && v >= this._nowMinutes() - 2) this._minutes = null; else this._minutes = v;
+  }
+
+  /** Barra temporale verticale: 00 in alto, 24 in basso, il cursore sta sull'ora attuale. */
+  private _vtimeline() {
+    const today = this._isToday();
+    const nowMin = this._nowMinutes();
+    const value = this._minutes ?? (today ? nowMin : 1439);
+    const p = (value / 1439) * 100;
+    const nowP = today ? (nowMin / 1439) * 100 : 100;
+    const label = this._isLive() ? "Adesso" : new Date(minutesToTs(this._day, value)).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+    return html`<div class="vtl" role="slider" aria-label="Ora della giornata" aria-valuemin="0" aria-valuemax="1439" aria-valuenow=${value}
+      @pointerdown=${(e: PointerEvent) => { this._vdrag = true; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); this._vSet(e); }}
+      @pointermove=${(e: PointerEvent) => { if (this._vdrag) this._vSet(e); }}
+      @pointerup=${() => { this._vdrag = false; }} @pointercancel=${() => { this._vdrag = false; }}>
+      <div class="vin" style="--p:${p}%;--now:${nowP}%">
+        ${[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => html`<span class="vlab" style="top:${(h / 24) * 100}%">${String(h).padStart(2, "0")}</span>`)}
+        <div class="vtrack"><div class="vfill"></div></div>
+        <div class="vthumb"></div>
+        <div class="vbub">${label}</div>
+      </div>
+    </div>`;
+  }
+
   render() {
     if (!this._hass) return nothing;
     const blocks = this._blocks();
@@ -343,6 +401,25 @@ export class WeatherHubcasaleCard extends LitElement {
     const age = newest === null ? null : Date.now() - newest;
     const connected = age !== null && age < 20 * 60e3;
     const title = this._settings.title || this._config.title || "Stazione meteo";
+    if (this._tabletMode()) {
+      return html`<ha-card><div class="wrap tab">
+        <div class="tmain">
+          ${blocks.length ? html`<div class="tiles" style="--n:${Math.min(7, blocks.length)}">${blocks}</div>` : html`<div class="empty"><p>Nessun sensore scelto.</p><button class="cta" @click=${() => this._openSettings()}>Apri le preferenze</button></div>`}
+          ${this._settings.map.enabled || this._showForecast() ? html`<div class="bottom ${this._settings.map.enabled && this._showForecast() ? "two" : ""}">
+            ${this._settings.map.enabled ? html`<section class="map"><div class="mapbox"></div>${this._radarError ? html`<div class="maperr">${this._radarError}</div>` : nothing}</section>` : nothing}
+            ${this._showForecast() ? html`<section class="forecast"><div class="forecastbox"></div>${this._forecastError ? html`<div class="maperr">${this._forecastError}</div>` : nothing}</section>` : nothing}
+          </div>` : nothing}
+        </div>
+        <aside class="rail">
+          <div class="railbox">
+            <div class="rhead"><span class="rtitle">${title}</span><button class="gear sm" aria-label="Preferenze" title="Preferenze" @click=${() => this._openSettings()}>${ICON_GEAR}</button></div>
+            <div class="status"><span class="dot ${connected ? "ok" : "off"}"></span>${connected ? "CONNESSO" : blocks.length ? "NON AGGIORNATO" : "DA CONFIGURARE"}${age !== null ? html` <span class="ago">${new Date(newest!).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</span>` : nothing}</div>
+            ${blocks.length ? this._datenavRail() : nothing}
+          </div>
+          ${blocks.length ? this._vtimeline() : nothing}
+        </aside>
+      </div></ha-card>`;
+    }
     return html`<ha-card><div class="wrap">
       <header>
         <div class="h-left"><h1>${title}</h1>
@@ -412,6 +489,33 @@ export class WeatherHubcasaleCard extends LitElement {
     .map, .forecast { position: relative; min-height: 280px; border: 1px solid var(--divider-color); border-radius: 12px; overflow: hidden; background: var(--secondary-background-color, #2a2a2a); }
     .mapbox, .mapbox > *, .forecastbox, .forecastbox > * { display: block; width: 100%; height: 100%; min-height: inherit; }
     .maperr { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; color: var(--secondary-text-color); font-size: .9rem; }
+
+    /* ---- vista tablet: colonna a destra a tutta altezza ---- */
+    :host([tablet]) ha-card { height: calc(100vh - var(--header-height, 56px) - 16px); height: calc(100dvh - var(--header-height, 56px) - 16px); min-height: 560px; }
+    .wrap.tab { display: grid; grid-template-columns: minmax(0, 1fr) 128px; gap: 10px; height: 100%; min-height: 0; padding: 8px 10px; }
+    .tmain { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    .tab .tiles { grid-template-columns: repeat(var(--n, 7), minmax(0, 1fr)); gap: 8px; }
+    .tab .bottom { margin-top: 8px; }
+    .tab button.cbtn { width: 36px; height: 36px; }
+    .tab .t-title { padding-right: 36px; font-size: .62rem; letter-spacing: .03em; }
+    .tab .tile.two .t-title { padding-right: 72px; }
+    .rail { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+    .railbox { border: 1px solid var(--divider-color); border-radius: 12px; padding: 8px; background: var(--ha-card-background, var(--card-background-color, #1c1c1c)); }
+    .rhead { display: flex; align-items: flex-start; gap: 4px; }
+    .rtitle { flex: 1; min-width: 0; font-size: .95rem; font-weight: 500; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+    button.gear.sm { width: 36px; height: 36px; border-radius: 18px; flex: none; margin: -4px -4px 0 0; border: 0; }
+    .railbox .status { margin: 4px 0 6px; font-size: .62rem; }
+    .railbox .ago { font-size: .7rem; }
+    .rdate { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 6px; }
+    .rdate button.nb { min-width: 0; width: 100%; min-height: 40px; font-size: 1.3rem; padding: 0; }
+    .rdl { grid-column: 1 / -1; text-align: center; font-size: .85rem; line-height: 1.2; text-transform: capitalize; }
+    .rdate button.now { grid-column: 1 / -1; min-height: 40px; font-size: .85rem; padding: 0; }
+    .vtl { flex: 1; min-height: 0; position: relative; border: 1px solid var(--divider-color); border-radius: 12px; background: var(--ha-card-background, var(--card-background-color, #1c1c1c)); touch-action: none; cursor: pointer; user-select: none; }
+    .vin { position: absolute; inset: 16px 8px 16px 8px; }
+    .vlab { position: absolute; left: 0; transform: translateY(-50%); font-size: .72rem; color: var(--secondary-text-color); }
+    .vtrack { position: absolute; left: 34px; top: 0; bottom: 0; width: 6px; border-radius: 3px; background: linear-gradient(to bottom, var(--whc-blue) var(--p), var(--divider-color) var(--p) var(--now, 100%), rgba(127, 127, 127, .18) var(--now, 100%)); }
+    .vthumb { position: absolute; left: 24px; top: var(--p); transform: translateY(-50%); width: 26px; height: 26px; border-radius: 50%; background: var(--whc-blue); border: 3px solid var(--card-background-color, #1c1c1c); box-shadow: 0 0 0 1px var(--whc-blue); box-sizing: border-box; }
+    .vbub { position: absolute; left: 56px; top: var(--p); transform: translateY(-50%); font-size: .78rem; background: var(--secondary-background-color); padding: 2px 7px; border-radius: 10px; white-space: nowrap; pointer-events: none; }
     .empty { text-align: center; padding: 40px 10px; color: var(--secondary-text-color); }
     button.cta { min-height: 44px; padding: 0 22px; border-radius: 22px; border: 0; background: var(--primary-color, #03a9f4); color: #fff; font-size: 1rem; cursor: pointer; }
     .warn { margin-top: 10px; font-size: .8rem; color: #f0923c; }
