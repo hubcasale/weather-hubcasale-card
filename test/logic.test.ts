@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dewPoint, feelsLike, windCardinal, pressureTrend, uvLevel, tempColor, valueAt, parseHistory, downsample, fmt, dayStart, addDays, minutesToTs, niceTicks, seaLevelPressure } from "../src/logic";
+import { dewPoint, feelsLike, windCardinal, pressureTrend, uvLevel, tempColor, valueAt, parseHistory, downsample, fmt, isRainingState, dayStart, addDays, minutesToTs, niceTicks, seaLevelPressure } from "../src/logic";
 
 const near = (a: number, b: number, tol: number) => assert.ok(Math.abs(a - b) <= tol, `${a} non vicino a ${b}`);
 
@@ -105,4 +105,14 @@ test("pressione al livello del mare", () => {
   assert.equal(seaLevelPressure(950, 15, 0), 950);
   near(seaLevelPressure(1013.25, 15, 0), 1013.25, 0.001);
   assert.ok(seaLevelPressure(950, null, 500) > 950);
+});
+
+test("sensore sta piovendo: stati riconosciuti", () => {
+  assert.equal(isRainingState("on"), true);
+  assert.equal(isRainingState("Rain"), true);
+  assert.equal(isRainingState("off"), false);
+  assert.equal(isRainingState("0"), false);
+  assert.equal(isRainingState("0.4"), true);
+  assert.equal(isRainingState("unavailable"), null);
+  assert.equal(isRainingState(undefined), null);
 });

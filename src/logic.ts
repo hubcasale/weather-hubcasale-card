@@ -150,6 +150,16 @@ export function niceTicks(lo: number, hi: number, count = 5): number[] {
   return out;
 }
 
+/** Interpreta lo stato di un sensore "sta piovendo": true/false, oppure null se non disponibile o non riconosciuto. */
+export function isRainingState(state: string | undefined | null): boolean | null {
+  if (state === undefined || state === null) return null;
+  const s = String(state).trim().toLowerCase();
+  if (["on", "true", "yes", "rain", "raining", "wet", "detected", "drizzle", "piove", "pioggia"].includes(s)) return true;
+  if (["off", "false", "no", "none", "dry", "clear", "not_detected", "non piove"].includes(s)) return false;
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n > 0 : null;
+}
+
 /** Pressione ridotta al livello del mare (formula ipsometrica) da pressione di stazione hPa, temperatura °C e quota m. */
 export function seaLevelPressure(pStation: number, tC: number | null, altitudeM: number): number {
   if (!(altitudeM > 0)) return pStation;

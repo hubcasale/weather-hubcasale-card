@@ -14,7 +14,7 @@ Si compone di:
 | Temperatura | arco colorato e temperatura percepita (calcolata, o il sensore scelto) |
 | Umidità | anello e punto di rugiada (calcolato, o il sensore scelto) |
 | Vento | bussola, velocità, raffica, direzione in gradi e in punti cardinali |
-| Precipitazioni | cilindro, totale del giorno e intensità |
+| Precipitazioni | cilindro, totale del giorno e intensità; con un sensore «sta piovendo» (facoltativo, nelle preferenze) compare un puntino blu acceso e «Piove ora», altrimenti «Asciutto» (solo nella vista in diretta) |
 | Pressione | quadrante e tendenza (variazione nelle ultime 3 ore) |
 | UV | piramide a livelli (Basso … Estremo) |
 | Radiazione | sole proporzionale ai W/m² |

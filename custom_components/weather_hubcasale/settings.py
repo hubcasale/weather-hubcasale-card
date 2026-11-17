@@ -18,6 +18,7 @@ ENTITY_KEYS = (
     "uv",
     "radiation",
     "weather",
+    "rain_now",
 )
 ENTITY_RE = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 ZOOM_MIN, ZOOM_MAX = 3, 12

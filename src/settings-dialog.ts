@@ -23,6 +23,7 @@ const GROUPS: Group[] = [
   { title: "Precipitazioni", fields: [
     { key: "rain_rate", label: "Intensità (mm/h)", hint: ["precipitation_intensity"], units: ["mm/h", "mm"], words: ["pioggia", "rain", "precip", "pluvio"] },
     { key: "rain_day", label: "Totale del giorno (mm)", hint: ["precipitation"], units: ["mm"], words: ["pioggia", "rain", "precip", "pluvio"] },
+    { key: "rain_now", label: "Sensore «sta piovendo» (facoltativo: accende il puntino)", hint: ["moisture", "precipitation_intensity"], units: [], domains: ["binary_sensor", "sensor", "input_boolean"], words: ["piove", "pioggia", "rain", "wet", "bagnato"] }
   ] },
   { title: "Pressione", fields: [
     { key: "pressure", label: "Pressione", hint: ["pressure", "atmospheric_pressure"], units: ["hPa", "mbar", "kPa", "inHg"], words: ["press", "baro"] },

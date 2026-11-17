@@ -3,7 +3,7 @@ import "./chart-dialog";
 import "./settings-dialog";
 import type { ChartSpec } from "./chart-dialog";
 import { compass, humidityRing, pressureDial, radiationSun, rainCylinder, tempGauge, uvPyramid } from "./gauges";
-import { addDays, ago, dayStart, dewPoint, feelsLike, fmt, minutesToTs, parseHistory, pressureTrend, seaLevelPressure, uvLevel, valueAt, windCardinal } from "./logic";
+import { addDays, ago, dayStart, dewPoint, feelsLike, fmt, isRainingState, minutesToTs, parseHistory, pressureTrend, seaLevelPressure, uvLevel, valueAt, windCardinal } from "./logic";
 import { ENTITY_KEYS, defaultSettings } from "./types";
 import type { EntityKey, Hass, Series, Settings } from "./types";
 
@@ -126,7 +126,7 @@ export class WeatherHubcasaleCard extends LitElement {
   private _isLive() { return this._isToday() && this._minutes === null; }
   private _nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
   private _ts(): number { return this._isLive() ? Date.now() : minutesToTs(this._day, this._minutes ?? 0); }
-  private _mapped(): string[] { return [...new Set(ENTITY_KEYS.filter((k) => k !== "weather").map((k) => this._ent[k]).filter(Boolean))]; }
+  private _mapped(): string[] { return [...new Set(ENTITY_KEYS.filter((k) => k !== "weather" && k !== "rain_now").map((k) => this._ent[k]).filter(Boolean))]; }
 
   private async _ensureHistory() {
     if (!this._hass || !this._loaded) return;
@@ -163,6 +163,13 @@ export class WeatherHubcasaleCard extends LitElement {
   }
 
   private _showForecast(): boolean { return this._settings.forecast.enabled && !!this._ent.weather; }
+
+  /** Sta piovendo adesso? Solo in diretta e solo se e' scelto un sensore dedicato; altrimenti null (puntino nascosto). */
+  private _raining(): boolean | null {
+    const id = this._ent.rain_now;
+    if (!id || !this._isLive()) return null;
+    return isRainingState(this._hass.states[id]?.state);
+  }
 
   private _rateUnit(): string { const u = this._unit("rain_rate", "mm/h"); return u === "mm" ? "mm/h" : u; }
 
@@ -263,9 +270,9 @@ export class WeatherHubcasaleCard extends LitElement {
   }
 
   // ---------------------------------------------------------------- vista
-  private _tile(title0: string, gauge: unknown, value: string, unit: string, sub: unknown, chartBtns: { kind: ChartKind; label: string }[]) {
+  private _tile(title0: string, gauge: unknown, value: string, unit: string, sub: unknown, chartBtns: { kind: ChartKind; label: string }[], raining: boolean | null = null) {
     const title = this._tabletMode() && title0 === "Precipitazioni" ? "Pioggia" : title0;
-    return html`<div class="tile ${chartBtns.length > 1 ? "two" : ""}">
+    return html`<div class="tile ${chartBtns.length > 1 ? "two" : ""} ${raining ? "raining" : ""}">
       <div class="t-title">${title}</div>
       <div class="cbtns">${chartBtns.map((b) => html`<button class="cbtn" title=${b.label} aria-label=${b.label} @click=${() => this._openChart(b.kind)}>${ICON_CHART}</button>`)}</div>
       ${gauge}
@@ -294,8 +301,9 @@ export class WeatherHubcasaleCard extends LitElement {
         [{ kind: "wind", label: "Grafico vento e raffica" }, ...(e.wind_direction ? [{ kind: "winddir" as ChartKind, label: "Grafico direzione" }] : [])]));
     }
     if (e.rain_day || e.rain_rate) {
-      const day = this._val("rain_day"), rate = this._val("rain_rate");
-      out.push(this._tile("Precipitazioni", rainCylinder(day), fmt(day ?? rate, 1), this._unit("rain_day", "mm"), html`${fmt(rate, 1)} ${this._rateUnit()}`, [{ kind: "precipitation", label: "Grafico precipitazioni" }]));
+      const day = this._val("rain_day"), rate = this._val("rain_rate"), now = this._raining();
+      out.push(this._tile("Precipitazioni", rainCylinder(day), fmt(day ?? rate, 1), this._unit("rain_day", "mm"),
+        html`${now === null ? nothing : html`<span class="rainstate ${now ? "on" : ""}"><span class="raindot ${now ? "on" : ""}"></span>${now ? "Piove ora" : "Asciutto"}</span><br/>`}${fmt(rate, 1)} ${this._rateUnit()}`, [{ kind: "precipitation", label: "Grafico precipitazioni" }], now));
     }
     if (e.pressure) {
       const alt = this._settings.pressure_altitude;
@@ -459,6 +467,12 @@ export class WeatherHubcasaleCard extends LitElement {
     .tile { position: relative; display: flex; flex-direction: column; align-items: center; min-height: 168px; padding: 6px 8px 8px; border: 1px solid var(--divider-color); border-radius: 12px; background: var(--ha-card-background, var(--card-background-color, #1c1c1c)); box-sizing: border-box; }
     .t-title { font-size: .66rem; letter-spacing: .05em; text-transform: uppercase; font-weight: 600; color: var(--primary-text-color); align-self: flex-start; padding: 0 44px 0 4px; min-height: 36px; display: flex; align-items: center; box-sizing: border-box; width: 100%; }
     .tile.two .t-title { padding-right: 88px; }
+    .rainstate { white-space: nowrap; } .rainstate.on { color: #3d8fd1; font-weight: 600; }
+    .raindot { display: inline-block; vertical-align: middle; margin: -2px 5px 0 0; width: 9px; height: 9px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid var(--secondary-text-color); opacity: .55; }
+    .raindot.on { border-color: #3d8fd1; background: #3d8fd1; opacity: 1; box-shadow: 0 0 0 0 rgba(61,143,209,.6); animation: raindot-pulse 1.8s ease-out infinite; }
+    .tile.raining { border-color: #3d8fd1; }
+    @keyframes raindot-pulse { 0% { box-shadow: 0 0 0 0 rgba(61,143,209,.6); } 70% { box-shadow: 0 0 0 7px rgba(61,143,209,0); } 100% { box-shadow: 0 0 0 0 rgba(61,143,209,0); } }
+    @media (prefers-reduced-motion: reduce) { .raindot.on { animation: none; } }
     .cbtns { position: absolute; top: 0; right: 0; display: flex; }
     button.cbtn { width: 44px; height: 44px; border: 0; background: transparent; color: var(--secondary-text-color); cursor: pointer; border-radius: 22px; display: flex; align-items: center; justify-content: center; }
     button.cbtn:active { background: var(--secondary-background-color); }

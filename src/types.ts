@@ -1,7 +1,7 @@
 /** Chiavi dei sensori che si possono mappare dalle preferenze. */
 export const ENTITY_KEYS = [
   "temperature", "feels_like", "humidity", "dew_point", "wind_speed", "wind_gust", "wind_direction",
-  "rain_rate", "rain_day", "pressure", "uv", "radiation", "weather",
+  "rain_rate", "rain_day", "pressure", "uv", "radiation", "weather", "rain_now",
 ] as const;
 export type EntityKey = (typeof ENTITY_KEYS)[number];
 

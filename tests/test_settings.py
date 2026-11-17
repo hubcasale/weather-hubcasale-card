@@ -15,6 +15,7 @@ def test_default_has_every_key():
     assert d["map"] == {"enabled": True, "zoom": 7}
     assert d["forecast"] == {"enabled": True}
     assert "weather" in d["entities"]
+    assert "rain_now" in d["entities"]
 
 
 def test_garbage_input_gives_defaults():
