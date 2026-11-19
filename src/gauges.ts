@@ -55,8 +55,10 @@ export function niceMax(v: number): number {
   return 1000;
 }
 
-export function rainCylinder(mm: number | null) {
-  const max = niceMax(mm ?? 0), f = mm === null ? 0 : clamp(mm / max, 0, 1);
+/** Recipiente a fondo scala fisso (max): la pioggia debole resta visibile (almeno il 4 % dell'altezza), oltre il fondo scala il recipiente e' pieno. */
+export function rainCylinder(mm: number | null, max: number) {
+  const f = mm === null || mm <= 0 ? 0 : clamp(mm / max, 0.04, 1);
+  const label = (v: number) => String(Number(v.toFixed(1)));
   const top = 10, bottom = 66, h = bottom - top, level = bottom - h * f;
   return svg`
     <svg viewBox="0 0 120 80" class="gauge" aria-hidden="true">
@@ -64,7 +66,8 @@ export function rainCylinder(mm: number | null) {
       <ellipse cx="60" cy="${top}" rx="16" ry="5" fill="none" class="outline" stroke-width="2"/>
       ${f > 0 ? svg`<path d="M44 ${level} v${bottom - level} a16 5 0 0 0 32 0 v${-(bottom - level)} a16 5 0 0 1 -32 0 Z" fill="var(--whc-blue, #3d8fd1)" opacity=".85"/>` : ""}
       ${[0.25, 0.5, 0.75].map((q) => svg`<line x1="${44}" x2="${50}" y1="${bottom - h * q}" y2="${bottom - h * q}" class="tick"/>`)}
-      <text x="84" y="${top + 4}" class="lbl small">${max}</text>
+      <text x="84" y="${top + 4}" class="lbl small">${label(max)}</text>
+      <text x="84" y="${bottom - h * 0.5 + 3}" class="lbl small">${label(max / 2)}</text>
     </svg>`;
 }
 

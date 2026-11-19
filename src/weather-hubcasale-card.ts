@@ -3,7 +3,7 @@ import "./chart-dialog";
 import "./settings-dialog";
 import type { ChartSpec } from "./chart-dialog";
 import { compass, humidityRing, pressureDial, radiationSun, rainCylinder, tempGauge, uvPyramid } from "./gauges";
-import { addDays, ago, dayStart, dewPoint, feelsLike, fmt, isRainingState, minutesToTs, parseHistory, pressureTrend, seaLevelPressure, uvLevel, valueAt, windCardinal } from "./logic";
+import { addDays, ago, dayStart, dewPoint, feelsLike, fmt, isRainingState, minutesToTs, parseHistory, pressureTrend, rainGaugeMax, seaLevelPressure, uvLevel, valueAt, windCardinal } from "./logic";
 import { ENTITY_KEYS, defaultSettings } from "./types";
 import type { EntityKey, Hass, Series, Settings } from "./types";
 
@@ -302,7 +302,7 @@ export class WeatherHubcasaleCard extends LitElement {
     }
     if (e.rain_day || e.rain_rate) {
       const day = this._val("rain_day"), rate = this._val("rain_rate"), now = this._raining();
-      out.push(this._tile("Precipitazioni", rainCylinder(day), fmt(day ?? rate, 1), this._unit("rain_day", "mm"),
+      out.push(this._tile("Precipitazioni", rainCylinder(day, rainGaugeMax(this._unit("rain_day", "mm"))), fmt(day ?? rate, 1), this._unit("rain_day", "mm"),
         html`${now === null ? nothing : html`<span class="rainstate ${now ? "on" : ""}"><span class="raindot ${now ? "on" : ""}"></span>${now ? "Piove ora" : "Asciutto"}</span><br/>`}${fmt(rate, 1)} ${this._rateUnit()}`, [{ kind: "precipitation", label: "Grafico precipitazioni" }], now));
     }
     if (e.pressure) {

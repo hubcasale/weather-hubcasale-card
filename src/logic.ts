@@ -30,6 +30,14 @@ export function windCardinal(deg: number): string {
   return CARDINALS[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
 }
 
+/** Fondo scala fisso del recipiente delle precipitazioni (giornata molto piovosa): 50 mm, 5 cm o 2 pollici secondo l'unita' del sensore. */
+export function rainGaugeMax(unit: string): number {
+  const u = unit.trim().toLowerCase();
+  if (u === "in" || u === "inch" || u === "inches") return 2;
+  if (u === "cm") return 5;
+  return 50;
+}
+
 /** Tacche dell'asse del grafico della direzione: i punti cardinali principali ogni 45 gradi, da N a N. */
 export const COMPASS_TICKS: { v: number; label: string }[] = [0, 45, 90, 135, 180, 225, 270, 315, 360].map((v) => ({ v, label: windCardinal(v) }));
 
