@@ -201,7 +201,7 @@ export class WeatherHubcasaleCard extends LitElement {
       case "wind": spec = { title: "Vento e raffica", dayStart: dayStartTs, yMin: 0, series: [
         { label: "Vento", color: "#3d8fd1", unit: u("wind_speed", "km/h"), data: this._series("wind_speed") },
         { label: "Raffica", color: "#f0923c", unit: u("wind_gust", "km/h"), data: this._series("wind_gust"), style: "dots" }] }; break;
-      case "winddir": spec = { title: "Direzione del vento", dayStart: dayStartTs, yMin: 0, yMax: 360, decimals: 0, series: [{ label: "Direzione", color: "#b07cd8", unit: "°", data: this._series("wind_direction"), style: "dots" }] }; break;
+      case "winddir": spec = { title: "Direzione del vento", dayStart: dayStartTs, yMin: 0, yMax: 360, decimals: 0, compass: true, series: [{ label: "Direzione", color: "#b07cd8", unit: "°", data: this._series("wind_direction"), style: "dots" }] }; break;
       case "precipitation": spec = { title: "Precipitazioni", dayStart: dayStartTs, yMin: 0, series: [
         { label: "Totale del giorno", color: "#3d8fd1", unit: u("rain_day", "mm"), data: this._series("rain_day"), style: "area" },
         { label: "Intensità", color: "#f0923c", unit: u("rain_rate", "mm/h"), data: this._series("rain_rate") }] }; break;

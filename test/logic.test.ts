@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dewPoint, feelsLike, windCardinal, pressureTrend, uvLevel, tempColor, valueAt, parseHistory, downsample, fmt, isRainingState, dayStart, addDays, minutesToTs, niceTicks, seaLevelPressure } from "../src/logic";
+import { COMPASS_TICKS, dewPoint, feelsLike, windCardinal, pressureTrend, uvLevel, tempColor, valueAt, parseHistory, downsample, fmt, isRainingState, dayStart, addDays, minutesToTs, niceTicks, seaLevelPressure } from "../src/logic";
 
 const near = (a: number, b: number, tol: number) => assert.ok(Math.abs(a - b) <= tol, `${a} non vicino a ${b}`);
 
@@ -23,6 +23,11 @@ test("direzione del vento in sedici punti", () => {
   assert.equal(windCardinal(247), "OSO");
   assert.equal(windCardinal(359), "N");
   assert.equal(windCardinal(-10), "N");
+});
+
+test("asse del grafico della direzione: punti cardinali ogni 45 gradi, da N a N", () => {
+  assert.deepEqual(COMPASS_TICKS.map((t) => t.label), ["N", "NE", "E", "SE", "S", "SO", "O", "NO", "N"]);
+  assert.deepEqual(COMPASS_TICKS.map((t) => t.v), [0, 45, 90, 135, 180, 225, 270, 315, 360]);
 });
 
 test("tendenza della pressione", () => {

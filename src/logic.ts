@@ -30,6 +30,9 @@ export function windCardinal(deg: number): string {
   return CARDINALS[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
 }
 
+/** Tacche dell'asse del grafico della direzione: i punti cardinali principali ogni 45 gradi, da N a N. */
+export const COMPASS_TICKS: { v: number; label: string }[] = [0, 45, 90, 135, 180, 225, 270, 315, 360].map((v) => ({ v, label: windCardinal(v) }));
+
 /** Tendenza della pressione dalla variazione (hPa) nelle ultime ore. */
 export function pressureTrend(deltaHpa: number | null): "up" | "down" | "steady" | "" {
   if (deltaHpa === null || Number.isNaN(deltaHpa)) return "";

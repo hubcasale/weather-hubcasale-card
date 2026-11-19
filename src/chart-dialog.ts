@@ -1,9 +1,10 @@
 import { LitElement, html, css, svg, nothing } from "lit";
-import { downsample, fmt, niceTicks } from "./logic";
+import { COMPASS_TICKS, downsample, fmt, niceTicks, windCardinal } from "./logic";
 import type { Series } from "./types";
 
 export interface ChartSeries { label: string; color: string; unit: string; data: Series; style?: "line" | "dots" | "area" }
-export interface ChartSpec { title: string; series: ChartSeries[]; dayStart: number; yMin?: number; yMax?: number; decimals?: number }
+/** compass: l'asse verticale (0-360 gradi) mostra i punti cardinali e la lettura riporta punto cardinale e gradi. */
+export interface ChartSpec { title: string; series: ChartSeries[]; dayStart: number; yMin?: number; yMax?: number; decimals?: number; compass?: boolean }
 
 /** Popup con il grafico del giorno: si attacca al body, si chiude toccando fuori o con la X; tocco/mouse mostra i valori. */
 export class WhcChartDialog extends LitElement {
@@ -55,6 +56,8 @@ export class WhcChartDialog extends LitElement {
     const Y = (v: number) => g.t + (1 - (v - lo) / (hi - lo)) * (g.h - g.t - g.b);
     const yTicks = niceTicks(lo, hi, 5);
     const dec = spec.decimals ?? ((yTicks[1] ?? 1) - (yTicks[0] ?? 0) < 1 ? 1 : 0);
+    const yLabels = spec.compass ? COMPASS_TICKS : yTicks.map((v) => ({ v, label: fmt(v, dec) }));
+    const readVal = (v: number | null, unit: string) => (spec.compass && v !== null ? `${windCardinal(v)} (${fmt(v, 0)}°)` : `${fmt(v, dec)} ${unit}`);
     const cursorTs = this._cursor === null ? null : day0 + this._cursor * (day1 - day0);
     const reading = cursorTs === null ? [] : spec.series.map((s) => {
       let best: number | null = null;
@@ -67,7 +70,7 @@ export class WhcChartDialog extends LitElement {
         <div class="legend">${spec.series.map((s) => html`<span><span class="sw" style="background:${s.color}"></span>${s.label}${s.unit ? ` (${s.unit})` : ""}</span>`)}</div>
         ${has ? html`
         <svg viewBox="0 0 ${g.w} ${g.h}" @pointermove=${this._onMove} @pointerdown=${this._onMove} @pointerleave=${() => (this._cursor = null)}>
-          ${yTicks.map((v) => svg`<line class="grid" x1="${g.l}" x2="${g.w - g.r}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${g.l - 6}" y="${Y(v) + 4}" text-anchor="end">${fmt(v, dec)}</text>`)}
+          ${yLabels.map((t) => svg`<line class="grid" x1="${g.l}" x2="${g.w - g.r}" y1="${Y(t.v)}" y2="${Y(t.v)}"/><text class="axis" x="${g.l - 6}" y="${Y(t.v) + 4}" text-anchor="end">${t.label}</text>`)}
           ${[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => svg`<line class="grid" x1="${X(day0 + h * 3600e3)}" x2="${X(day0 + h * 3600e3)}" y1="${g.t}" y2="${g.h - g.b}" opacity=".5"/><text class="axis" x="${X(day0 + h * 3600e3)}" y="${g.h - 8}" text-anchor="middle">${String(h % 24).padStart(2, "0")}:00</text>`)}
           ${spec.series.map((s) => {
             const pts = downsample(s.data.filter((p) => p.ts >= day0 && p.ts <= day1), 420);
@@ -81,7 +84,7 @@ export class WhcChartDialog extends LitElement {
         </svg>
         <div class="read">${cursorTs === null
             ? html`<span style="color:var(--secondary-text-color)">Tocca il grafico per leggere i valori.</span>`
-            : html`<b>${new Date(cursorTs).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</b>${reading.map((r) => html`<span><span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${r.s.color};margin-right:5px"></span>${fmt(r.v, dec)} ${r.s.unit}</span>`)}`}
+            : html`<b>${new Date(cursorTs).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</b>${reading.map((r) => html`<span><span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${r.s.color};margin-right:5px"></span>${readVal(r.v, r.s.unit)}</span>`)}`}
         </div>` : html`<div class="empty">Nessun dato per questo giorno.</div>`}
       </div>`;
   }
