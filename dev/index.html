@@ -74,17 +74,33 @@ window.loadCardHelpers = async () => ({ createCardElement: (cfg) => {
   el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 420" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%"><rect width="400" height="420" fill="#222a33"/><path d="M0 300 C80 250 140 330 220 290 S360 240 400 280 V420 H0Z" fill="#2c3a2e"/><circle cx="150" cy="170" r="70" fill="#3b6fb0" opacity=".45"/><circle cx="180" cy="150" r="38" fill="#4fd37a" opacity=".55"/><circle cx="190" cy="145" r="16" fill="#f0d33c" opacity=".7"/><circle cx="215" cy="215" r="5" fill="#fff"/><text x="12" y="410" fill="#aaa" font-size="11">mappa di prova · zoom '+cfg.zoom_level+'</text></svg>';
   return el; } });
 const el = document.createElement("weather-hubcasale-card");
-el.setConfig({});
+// cfg=1: configurazione nella scheda (editor visuale/YAML); senza, la scheda legge le vecchie preferenze salvate (get_settings)
+const cfg = params.get("cfg") === "1" ? { type:"custom:weather-hubcasale-card", ...(settings.title ? { title:settings.title } : {}), ...(settings.tablet ? { tablet:true } : {}), ...(settings.pressure_altitude ? { pressure_altitude:settings.pressure_altitude } : {}),
+  entities: Object.fromEntries(Object.entries(settings.entities).filter(([,v]) => v)), ...(settings.forecast.enabled ? {} : { forecast:{ enabled:false } }), ...(settings.map.enabled ? {} : { map:{ enabled:false, zoom:settings.map.zoom } }) } : {};
+el.setConfig(cfg);
 el.hass = hass;
 if (params.get("hdr")) { const h=document.getElementById("hdr"); h.style.cssText="height:"+params.get("hdr")+"px;background:#222;margin:-12px -12px 12px"; document.documentElement.style.setProperty("--header-height", params.get("hdr")+"px"); }
-if (params.get("fill")==="1") el.setConfig({ fill_height:true });
+if (params.get("fill")==="1") el.setConfig({ ...cfg, fill_height:true });
 const w = params.get("w"); if (w) document.getElementById("root").style.width = w+"px";
-document.getElementById("root").appendChild(el);
+if (params.get("editor") === "1") {
+  // ha-form finto: elenca i campi dello schema con i valori correnti; un clic su "scambia" emette un cambio per provare config-changed
+  customElements.define("ha-form", class extends HTMLElement {
+    set data(d) { this._d = d; this._draw(); } set schema(s) { this._s = s; this._draw(); }
+    set computeLabel(f) { this._l = f; this._draw(); } set hass(h) {}
+    _flat(s) { return s.flatMap((i) => i.schema ? this._flat(i.schema) : [i]); }
+    _draw() { if (!this._d || !this._s) return; const rows = this._flat(this._s).map((i) => `<tr><td>${this._l ? this._l(i) : i.name}</td><td><code>${JSON.stringify(this._d[i.name])}</code></td></tr>`).join("");
+      this.innerHTML = `<table style="font-size:12px;color:var(--primary-text-color)">${rows}</table><button id="b">Spegni mappa e previsioni</button>`;
+      this.querySelector("#b").onclick = () => this.dispatchEvent(new CustomEvent("value-changed", { detail:{ value:{ ...this._d, show_map:false, show_forecast:false } } })); } });
+  const ed = document.createElement("weather-hubcasale-card-editor");
+  ed.setConfig(cfg); ed.hass = hass;
+  const out = document.createElement("pre"); out.id = "out"; out.style.cssText = "font-size:12px;color:var(--primary-text-color)";
+  ed.addEventListener("config-changed", (e) => { out.textContent = "config-changed:\n" + JSON.stringify(e.detail.config, null, 1); });
+  document.getElementById("root").append(ed, out);
+} else document.getElementById("root").appendChild(el);
 const open = params.get("open");
 setTimeout(() => {
   if (params.get("min")) { el._minutes = Number(params.get("min")); }
   if (params.get("day")) { el._day = el._day - Number(params.get("day"))*86400e3; el._minutes = el._minutes ?? 720; }
-  if (open === "settings") el._openSettings();
   if (open && open.startsWith("chart:")) el._openChart(open.slice(6));
 }, 700);
 setTimeout(() => { document.title = 'H:' + Object.keys(el._history).length + ' day:' + el._day + ' min:' + el._minutes + ' key:' + el._histKey.slice(0,40) + ' pts:' + (el._history['sensor.pws_temperature']||[]).length; }, 3500);
