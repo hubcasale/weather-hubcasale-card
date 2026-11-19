@@ -75,6 +75,10 @@ forecast: { enabled: true }                 # facoltativo (predefinito: attive)
 
 Con `entities` presente vale solo la configurazione della scheda.
 
+### Dimensioni nella griglia (vista a sezioni)
+
+Dalla scheda **Layout** dell'editor puoi togliere «Usa le dimensioni consigliate» e scegliere liberamente le colonne (da 4 a 12) e le righe (da 5 a 40). Con le righe fisse la scheda riempie l'altezza che le dai: mappa e previsioni si adattano e, se lo spazio non basta, la scheda scorre. Con «Adatta al contenuto» (predefinito) l'altezza segue il contenuto. Con le righe fisse `fill_height` e la vista tablet non forzano più l'altezza dello schermo: conta la griglia.
+
 ## Sensori
 
 | Campo dell'editor | Unità attesa |

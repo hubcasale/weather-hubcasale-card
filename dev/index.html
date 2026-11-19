@@ -77,6 +77,8 @@ const el = document.createElement("weather-hubcasale-card");
 // cfg=1: configurazione nella scheda (editor visuale/YAML); senza, la scheda legge le vecchie preferenze salvate (get_settings)
 const cfg = params.get("cfg") === "1" ? { type:"custom:weather-hubcasale-card", ...(settings.title ? { title:settings.title } : {}), ...(settings.tablet ? { tablet:true } : {}), ...(settings.pressure_altitude ? { pressure_altitude:settings.pressure_altitude } : {}),
   entities: Object.fromEntries(Object.entries(settings.entities).filter(([,v]) => v)), ...(settings.forecast.enabled ? {} : { forecast:{ enabled:false } }), ...(settings.map.enabled ? {} : { map:{ enabled:false, zoom:settings.map.zoom } }) } : {};
+// rows=N: simula una cella della griglia a sezioni con N righe fisse (56 px + 8 px di spazio), come dalla scheda Layout di Home Assistant
+if (params.get("rows")) { const n = Number(params.get("rows")); cfg.grid_options = { columns:12, rows:n }; document.getElementById("root").style.height = (n*64-8)+"px"; }
 el.setConfig(cfg);
 el.hass = hass;
 if (params.get("hdr")) { const h=document.getElementById("hdr"); h.style.cssText="height:"+params.get("hdr")+"px;background:#222;margin:-12px -12px 12px"; document.documentElement.style.setProperty("--header-height", params.get("hdr")+"px"); }

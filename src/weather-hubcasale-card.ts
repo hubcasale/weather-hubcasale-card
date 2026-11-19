@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing, svg } from "lit";
 import "./chart-dialog";
 import "./editor";
-import { resolveSettings } from "./config";
+import { hasFixedRows, resolveSettings } from "./config";
 import type { CardConfig } from "./config";
 import type { ChartSpec } from "./chart-dialog";
 import { compass, humidityRing, pressureDial, radiationSun, rainCylinder, tempGauge, uvPyramid } from "./gauges";
@@ -61,7 +61,8 @@ export class WeatherHubcasaleCard extends LitElement {
     if (this._hass) void this._ensureSettings();
   }
   getCardSize() { return 9; }
-  getGridOptions() { return { columns: 12, min_columns: 6, rows: "auto" }; }
+  /** Predefinito: tutta la larghezza e altezza secondo il contenuto. Dalla scheda Layout si possono scegliere liberamente colonne (da 4) e righe. */
+  getGridOptions() { return { columns: 12, rows: "auto", min_columns: 4, max_columns: 12, min_rows: 5, max_rows: 40 }; }
   static getStubConfig() { return { entities: {} }; }
   static getConfigElement() { return document.createElement("weather-hubcasale-card-editor"); }
 
@@ -136,9 +137,10 @@ export class WeatherHubcasaleCard extends LitElement {
   private _tabletMode(): boolean { return this._settings.tablet && this._width >= 900; }
 
   protected willUpdate() {
-    const tab = this._tabletMode();
-    this.toggleAttribute("tablet", tab);
-    this.toggleAttribute("fill", this._config.fill_height === true || tab);
+    const tab = this._tabletMode(), fit = hasFixedRows(this._config);
+    this.toggleAttribute("fit", fit);                 // righe fisse nella griglia: la scheda riempie l'altezza che le viene data
+    this.toggleAttribute("tablet", tab && !fit);
+    this.toggleAttribute("fill", !fit && (this._config.fill_height === true || tab));
   }
 
   private _showForecast(): boolean { return this._settings.forecast.enabled && !!this._ent.weather; }
@@ -434,6 +436,12 @@ export class WeatherHubcasaleCard extends LitElement {
     :host([fill]) .map, :host([fill]) .forecast { min-height: 0; }
     :host([fill]) .forecastbox { overflow-y: auto; overflow-x: hidden; }
     :host([fill]) .forecastbox > * { height: auto; min-height: 100%; }
+    :host([fit]) ha-card { overflow-x: hidden; overflow-y: auto; }
+    :host([fit]) .wrap { height: 100%; min-height: 0; }
+    :host([fit]) .bottom { min-height: 0; grid-template-rows: minmax(0, 1fr); }
+    :host([fit]) .map, :host([fit]) .forecast { min-height: 0; }
+    :host([fit]) .forecastbox { overflow-y: auto; overflow-x: hidden; }
+    :host([fit]) .forecastbox > * { height: auto; min-height: 100%; }
     .wrap { padding: 8px 12px 12px; display: flex; flex-direction: column; min-height: 100%; box-sizing: border-box; }
     header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
     .h-left { flex: 1; min-width: 0; }

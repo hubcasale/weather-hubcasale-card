@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { EDITOR_LABELS, EDITOR_SCHEMA, fromEditorData, normalize, resolveSettings, toEditorData } from "../src/config";
+import { EDITOR_LABELS, EDITOR_SCHEMA, fromEditorData, hasFixedRows, normalize, resolveSettings, toEditorData } from "../src/config";
 import { ENTITY_KEYS } from "../src/types";
 
 const legacy = {
@@ -64,6 +64,14 @@ test("editor: i valori predefiniti non finiscono nello YAML, un sensore svuotato
   assert.deepEqual(off.map, { enabled: false, zoom: 7 });
   assert.deepEqual(off.forecast, { enabled: false });
   assert.deepEqual(off.entities, {});
+});
+
+test("righe fisse nella griglia: solo se grid_options.rows e' un numero", () => {
+  assert.equal(hasFixedRows({ grid_options: { columns: 12, rows: 8 } }), true);
+  assert.equal(hasFixedRows({ grid_options: { columns: 12, rows: "auto" } }), false);
+  assert.equal(hasFixedRows({ grid_options: { columns: 6 } }), false);
+  assert.equal(hasFixedRows({}), false);
+  assert.equal(hasFixedRows(null), false);
 });
 
 test("schema dell'editor: ogni sensore e ogni opzione c'e' ed ha l'etichetta", () => {

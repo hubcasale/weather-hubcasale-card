@@ -55,6 +55,12 @@ export function resolveSettings(config: CardConfig | null | undefined, legacy: P
   });
 }
 
+/** Nella vista a sezioni, la scheda Layout salva `grid_options` nella configurazione: con un numero di righe fisso la scheda segue l'altezza della griglia. */
+export function hasFixedRows(config: CardConfig | null | undefined): boolean {
+  const rows = (config?.grid_options as { rows?: unknown } | undefined)?.rows;
+  return typeof rows === "number" && Number.isFinite(rows);
+}
+
 /** Dati piatti per il modulo dell'editor (ha-form lavora su un oggetto senza livelli). */
 export function toEditorData(s: Settings, config: CardConfig | null | undefined): Record<string, unknown> {
   return {
@@ -127,6 +133,7 @@ export const EDITOR_LABELS: Record<string, string> = {
 };
 
 export const EDITOR_HELPERS: Record<string, string> = {
+  fill_height: "Se nella scheda Layout imposti un numero di righe, conta l'altezza della griglia.",
   feels_like: "Se manca viene calcolata.",
   dew_point: "Se manca viene calcolato.",
   rain_now: "Accende il puntino blu «Piove ora» nel blocco delle precipitazioni.",
