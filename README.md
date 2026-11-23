@@ -53,6 +53,7 @@ type: custom:weather-hubcasale-card
 title: Stazione di casa        # facoltativo
 tablet: true                   # vista tablet (colonna a destra con la barra temporale verticale)
 fill_height: true              # occupa tutta l'altezza (vista a pannello)
+color: indigo                  # colore proprio della scheda: sfondo tinto e bordo, riquadri come sono
 pressure_altitude: 579         # quota in m: riporta la pressione di stazione al livello del mare
 entities:
   temperature: sensor.temperatura_esterna

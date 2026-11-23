@@ -1,6 +1,7 @@
 import { LitElement, html, css, nothing, svg } from "lit";
 import "./chart-dialog";
 import "./editor";
+import { tintColor } from "./color-logic";
 import { hasFixedRows, resolveSettings } from "./config";
 import type { CardConfig } from "./config";
 import type { ChartSpec } from "./chart-dialog";
@@ -58,6 +59,10 @@ export class WeatherHubcasaleCard extends LitElement {
     this._config = config ?? {};
     this._settings = resolveSettings(this._config, this._legacy);
     this._histKey = "";
+    const tint = tintColor(this._config.color);
+    this.toggleAttribute("tinted", tint !== undefined);
+    if (tint !== undefined) this.style.setProperty("--whc-tint", tint);
+    else this.style.removeProperty("--whc-tint");
     if (this._hass) void this._ensureSettings();
   }
   getCardSize() { return 9; }
@@ -430,6 +435,8 @@ export class WeatherHubcasaleCard extends LitElement {
   static styles = css`
     :host { display: block; height: 100%; container-type: inline-size; color: var(--primary-text-color); --whc-blue: #3d8fd1; --whc-red: #e0463c; --whc-track: var(--divider-color, #3a3d44); }
     ha-card { display: block; padding: 0; overflow: hidden; height: 100%; box-sizing: border-box; }
+    /* opzione color: la tinta si mescola allo sfondo della scheda del tema; i riquadri dei dati hanno il loro sfondo e non cambiano */
+    :host([tinted]) ha-card { background: color-mix(in srgb, var(--whc-tint) 30%, var(--ha-card-background, var(--card-background-color, #1c1c1c))); border: 1px solid color-mix(in srgb, var(--whc-tint) 55%, transparent); }
     :host([fill]) ha-card { height: calc(100vh - var(--header-height, 56px) - 16px); height: calc(100dvh - var(--header-height, 56px) - 16px); min-height: 560px; }
     :host([fill]) .wrap { height: 100%; min-height: 0; }
     :host([fill]) .bottom { min-height: 0; grid-template-rows: minmax(0, 1fr); }

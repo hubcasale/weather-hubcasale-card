@@ -81,3 +81,20 @@ test("schema dell'editor: ogni sensore e ogni opzione c'e' ed ha l'etichetta", (
   for (const k of ["title", "tablet", "fill_height", "pressure_altitude", "show_forecast", "show_map", "map_zoom"]) assert.ok(found.includes(k), `manca ${k}`);
   for (const n of found) assert.ok(EDITOR_LABELS[n], `etichetta mancante per ${n}`);
 });
+
+test("editor: il colore della scheda si scrive solo se scelto e le chiavi degli altri restano", () => {
+  const base = { type: "custom:weather-hubcasale-card", entities: { temperature: "sensor.t" }, grid_options: { rows: 8 } };
+  const data = toEditorData(resolveSettings(base, null), base);
+  assert.equal(data.color, "");
+  const on = fromEditorData({ ...data, color: "indigo" }, base);
+  assert.equal(on.color, "indigo");
+  assert.deepEqual(on.grid_options, { rows: 8 });
+  assert.equal(toEditorData(resolveSettings(on, null), on).color, "indigo");
+  assert.equal("color" in fromEditorData({ ...toEditorData(resolveSettings(on, null), on), color: "none" }, on), false);
+  // il selettore del colore, svuotato, non manda la chiave
+  const cleared = { ...toEditorData(resolveSettings(on, null), on) };
+  delete cleared.color;
+  assert.equal("color" in fromEditorData(cleared, on), false);
+  // uno YAML con `color: none` scritto a mano si legge come «nessun colore»
+  assert.equal(toEditorData(resolveSettings({ ...base, color: "none" }, null), { ...base, color: "none" }).color, "");
+});

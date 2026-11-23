@@ -12,6 +12,8 @@ export interface CardConfig {
   title?: string;
   tablet?: boolean;
   fill_height?: boolean;
+  /** colore proprio della scheda: lo sfondo ne prende una tinta e il bordo lo segue; nome della tavolozza di Home Assistant o colore CSS */
+  color?: string;
   pressure_altitude?: number;
   entities?: Partial<Record<EntityKey, string>>;
   map?: { enabled?: boolean; zoom?: number };
@@ -65,6 +67,7 @@ export function hasFixedRows(config: CardConfig | null | undefined): boolean {
 export function toEditorData(s: Settings, config: CardConfig | null | undefined): Record<string, unknown> {
   return {
     title: s.title, tablet: s.tablet, fill_height: config?.fill_height === true,
+    color: typeof config?.color === "string" && config.color !== "none" ? config.color : "",
     ...s.entities,
     show_forecast: s.forecast.enabled, show_map: s.map.enabled, map_zoom: s.map.zoom,
     pressure_altitude: s.pressure_altitude,
@@ -73,7 +76,7 @@ export function toEditorData(s: Settings, config: CardConfig | null | undefined)
 
 /** Dal modulo dell'editor alla configurazione della scheda: compatta (niente valori predefiniti), sempre con `entities`. Le chiavi sconosciute restano. */
 export function fromEditorData(data: Record<string, unknown>, base: CardConfig | null | undefined): CardConfig {
-  const owned = ["type", "title", "tablet", "fill_height", "pressure_altitude", "entities", "map", "forecast"];
+  const owned = ["type", "title", "tablet", "fill_height", "color", "pressure_altitude", "entities", "map", "forecast"];
   const extras: CardConfig = {};
   for (const [k, v] of Object.entries(base ?? {})) if (!owned.includes(k)) extras[k] = v;
   const entitiesIn = {} as Settings["entities"];
@@ -88,6 +91,9 @@ export function fromEditorData(data: Record<string, unknown>, base: CardConfig |
   if (s.title) out.title = s.title;
   if (s.tablet) out.tablet = true;
   if (data.fill_height === true) out.fill_height = true;
+  // il selettore del colore, svuotato, non manda la chiave; «nessuno» vuol dire senza colore
+  const color = typeof data.color === "string" ? data.color.trim() : "";
+  if (color && color !== "none") out.color = color;
   if (s.pressure_altitude > 0) out.pressure_altitude = s.pressure_altitude;
   out.entities = entities;
   if (!s.map.enabled || s.map.zoom !== ZOOM_DEFAULT) out.map = { enabled: s.map.enabled, zoom: s.map.zoom };
@@ -105,6 +111,7 @@ export const EDITOR_SCHEMA = [
     { name: "tablet", required: false, selector: { boolean: {} } },
     { name: "fill_height", required: false, selector: { boolean: {} } },
   ] },
+  { name: "color", required: false, selector: { ui_color: { include_none: true } } },
   group("Temperatura e umidità", [sensor("temperature"), sensor("feels_like"), sensor("humidity"), sensor("dew_point")]),
   group("Vento", [sensor("wind_speed"), sensor("wind_gust"), sensor("wind_direction")]),
   group("Precipitazioni", [sensor("rain_rate"), sensor("rain_day"), sensor("rain_now", ["binary_sensor", "sensor", "input_boolean"])]),
@@ -125,6 +132,7 @@ export const EDITOR_LABELS: Record<string, string> = {
   title: "Titolo (facoltativo)",
   tablet: "Vista tablet (barra temporale verticale a destra)",
   fill_height: "Occupa tutta l'altezza dello schermo",
+  color: "Colore della scheda",
   temperature: "Temperatura", feels_like: "Temperatura percepita (facoltativa)", humidity: "Umidità relativa", dew_point: "Punto di rugiada (facoltativo)",
   wind_speed: "Velocità del vento", wind_gust: "Raffica", wind_direction: "Direzione del vento (gradi)",
   rain_rate: "Intensità della pioggia (mm/h)", rain_day: "Pioggia del giorno (mm)", rain_now: "Sensore «sta piovendo» (facoltativo)",
@@ -134,6 +142,7 @@ export const EDITOR_LABELS: Record<string, string> = {
 
 export const EDITOR_HELPERS: Record<string, string> = {
   fill_height: "Se nella scheda Layout imposti un numero di righe, conta l'altezza della griglia.",
+  color: "Tinge lo sfondo e il bordo della scheda, come un blocco colorato della plancia; i riquadri dei dati restano come sono. Nessuno lascia l'aspetto del tema.",
   feels_like: "Se manca viene calcolata.",
   dew_point: "Se manca viene calcolato.",
   rain_now: "Accende il puntino blu «Piove ora» nel blocco delle precipitazioni.",
